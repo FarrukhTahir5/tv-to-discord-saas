@@ -1,0 +1,99 @@
+import re
+import uuid
+import datetime
+
+from fastapi import APIRouter, Request, Depends, HTTPException
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import RedirectResponse
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+
+from app.db import get_db
+from app.models.user import User
+from app.models.alert import AlertLog
+from app.services.auth import get_current_user
+from app.config import settings
+
+templates = Jinja2Templates(directory="app/templates")
+router = APIRouter(tags=["dashboard"])
+
+DISCORD_WEBHOOK_PATTERN = re.compile(
+    r"^https://discord\.com/api/webhooks/\d{17,20}/[\w-]{60,70}$"
+)
+
+
+@router.get("/dashboard")
+async def dashboard(
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    # Recent 20 alerts for this user
+    result = await db.execute(
+        select(AlertLog)
+        .where(AlertLog.user_id == user.id)
+        .order_by(AlertLog.created_at.desc())
+        .limit(20)
+    )
+    recent_alerts = result.scalars().all()
+
+    webhook_url = f"{settings.app_url}/webhook/{user.webhook_token}"
+    alert_limit = (
+        settings.pro_alerts_per_day
+        if user.plan == "pro"
+        else settings.free_alerts_per_day
+    )
+
+    return templates.TemplateResponse(
+        "dashboard.html",
+        {
+            "request": request,
+            "user": user,
+            "webhook_url": webhook_url,
+            "recent_alerts": recent_alerts,
+            "alert_limit": alert_limit,
+            "app_name": settings.app_name,
+            "title": "Dashboard",
+        },
+    )
+
+
+@router.post("/dashboard/settings")
+async def update_settings(
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    form = await request.form()
+    discord_url = form.get("discord_webhook_url", "").strip()
+    default_exchange = form.get("default_exchange", "NASDAQ").strip().upper()
+    default_symbol = form.get("default_symbol", "").strip() or None
+
+    # Validate Discord URL
+    if discord_url and not DISCORD_WEBHOOK_PATTERN.match(discord_url):
+        raise HTTPException(400, "Invalid Discord webhook URL")
+
+    # Update user via a fresh query
+    result = await db.execute(select(User).where(User.id == user.id))
+    db_user = result.scalar_one()
+    db_user.discord_webhook_url = discord_url
+    db_user.default_exchange = default_exchange
+    db_user.default_symbol = default_symbol
+    await db.commit()
+
+    return RedirectResponse(url="/dashboard", status_code=303)
+
+
+@router.post("/dashboard/rotate-token")
+async def rotate_token(
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(User).where(User.id == user.id))
+    db_user = result.scalar_one()
+    db_user.webhook_token = str(uuid.uuid4())
+    db_user.webhook_token_created_at = datetime.datetime.utcnow()
+    await db.commit()
+
+    return RedirectResponse(url="/dashboard", status_code=303)

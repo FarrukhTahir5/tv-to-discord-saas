@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Error{% endblock %}
+{% block content %}
+<div class="max-w-md mx-auto mt-20 text-center">
+    <div class="text-6xl mb-6">{{ emoji | default('⚠️') }}</div>
+    <h1 class="text-3xl font-bold mb-3">{{ title | default('Something went wrong') }}</h1>
+    <p class="text-gray-400 mb-8">{{ message | default('An unexpected error occurred. Please try again.') }}</p>
+    <a href="/" class="inline-block px-6 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold transition">
+        Go Home
+    </a>
+</div>
+{% endblock %}

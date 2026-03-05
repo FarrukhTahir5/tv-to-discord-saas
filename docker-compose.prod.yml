@@ -1,0 +1,58 @@
+# Production Docker Compose — deploy API + Worker as separate services
+# Usage: docker compose -f docker-compose.prod.yml up -d
+
+version: "3.9"
+
+services:
+  # -----------------------------------------------------------------
+  # API service (HTTP, webhooks, dashboard — no browser)
+  # -----------------------------------------------------------------
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      RUN_MODE: api
+      DATABASE_URL: ${DATABASE_URL}
+      SECRET_KEY: ${SECRET_KEY}
+      APP_NAME: ${APP_NAME:-ChartAlert}
+      APP_URL: ${APP_URL}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      STRIPE_PRICE_ID_MONTHLY: ${STRIPE_PRICE_ID_MONTHLY}
+      STRIPE_PRICE_ID_YEARLY: ${STRIPE_PRICE_ID_YEARLY}
+      REDIS_URL: ${REDIS_URL:-}
+    command: >
+      bash -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2"
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # -----------------------------------------------------------------
+  # Worker service (Playwright browser + queue consumer)
+  # -----------------------------------------------------------------
+  worker:
+    build: .
+    environment:
+      RUN_MODE: worker
+      DATABASE_URL: ${DATABASE_URL}
+      SECRET_KEY: ${SECRET_KEY}
+      APP_NAME: ${APP_NAME:-ChartAlert}
+      APP_URL: ${APP_URL}
+      REDIS_URL: ${REDIS_URL:-}
+      SCREENSHOT_CONCURRENCY: ${SCREENSHOT_CONCURRENCY:-2}
+    command: >
+      bash -c "uvicorn app.main:app --host 0.0.0.0 --port 8001 --workers 1"
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health/playwright"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

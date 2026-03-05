@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+
+<!-- Webhook URL Section -->
+<div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6 mb-6">
+    <h2 class="text-lg font-bold mb-1">🔗 Your Webhook URL</h2>
+    <p class="text-sm text-gray-400 mb-4">Paste this URL into TradingView's alert notification settings as a "Webhook
+        URL".</p>
+
+    <div class="flex items-center gap-3">
+        <input type="text" id="webhook-url" value="{{ webhook_url }}" readonly
+            class="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm font-mono text-blue-400 focus:outline-none">
+        <button onclick="copyWebhook()" id="copy-btn"
+            class="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold transition whitespace-nowrap">
+            📋 Copy
+        </button>
+    </div>
+
+    <div class="mt-4 flex items-center gap-3">
+        <form method="POST" action="/dashboard/rotate-token">
+            <button type="submit" class="text-xs text-gray-500 hover:text-orange-400 transition"
+                onclick="return confirm('This will invalidate your current webhook URL. Continue?')">
+                🔄 Rotate Token
+            </button>
+        </form>
+        <span class="text-xs text-gray-600">Token created: {{ user.webhook_token_created_at.strftime('%Y-%m-%d') if
+            user.webhook_token_created_at else 'N/A' }}</span>
+    </div>
+</div>
+
+<!-- Usage + Settings Grid -->
+<div class="grid md:grid-cols-2 gap-6 mb-6">
+
+    <!-- Usage -->
+    <div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
+        <h2 class="text-lg font-bold mb-4">📊 Today's Usage</h2>
+
+        {% set usage_pct = ((user.alerts_used_today / alert_limit) * 100) | int if alert_limit > 0 else 0 %}
+
+        <div class="flex items-end justify-between mb-2">
+            <span
+                class="text-3xl font-extrabold
+        {% if usage_pct >= 90 %}text-red-400{% elif usage_pct >= 70 %}text-orange-400{% else %}text-blue-400{% endif %}">
+                {{ user.alerts_used_today }}
+            </span>
+            <span class="text-sm text-gray-500">/ {{ alert_limit }} alerts</span>
+        </div>
+
+        <div class="w-full bg-gray-800 rounded-full h-2.5 overflow-hidden">
+            <div class="h-full rounded-full transition-all duration-500
+        {% if usage_pct >= 90 %}bg-red-500{% elif usage_pct >= 70 %}bg-orange-500{% else %}bg-blue-500{% endif %}"
+                style="width: {{ [usage_pct, 100] | min }}%"></div>
+        </div>
+
+        <div class="mt-3 flex items-center justify-between">
+            <span class="text-xs px-2 py-0.5 rounded-full font-semibold
+        {% if user.plan == 'pro' %}bg-blue-500/20 text-blue-400 border border-blue-500/30
+        {% else %}bg-gray-700/50 text-gray-400 border border-gray-600{% endif %}">
+                {{ user.plan | upper }} Plan
+            </span>
+            {% if user.plan == 'free' %}
+            <form method="POST" action="/billing/create-checkout">
+                <input type="hidden" name="price_id" value="">
+                <button type="submit" class="text-xs text-blue-400 hover:underline">Upgrade to Pro →</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Settings -->
+    <div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
+        <h2 class="text-lg font-bold mb-4">⚙️ Settings</h2>
+
+        <form method="POST" action="/dashboard/settings" class="space-y-4">
+            <div>
+                <label class="block text-xs font-medium text-gray-400 mb-1">Discord Webhook URL</label>
+                <input type="url" name="discord_webhook_url" value="{{ user.discord_webhook_url or '' }}"
+                    class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition"
+                    placeholder="https://discord.com/api/webhooks/...">
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Default Exchange</label>
+                    <select name="default_exchange"
+                        class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none">
+                        {% for ex in ['NASDAQ', 'NYSE', 'AMEX', 'BINANCE', 'BYBIT', 'COINBASE', 'FOREX', 'TSX', 'LSE',
+                        'ASX'] %}
+                        <option value="{{ ex }}" {% if user.default_exchange==ex %}selected{% endif %}>{{ ex }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Default Symbol (optional)</label>
+                    <input type="text" name="default_symbol" value="{{ user.default_symbol or '' }}"
+                        class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none"
+                        placeholder="e.g. NASDAQ:AAPL">
+                </div>
+            </div>
+
+            <button type="submit"
+                class="w-full py-2 bg-gray-700 hover:bg-gray-600 rounded-xl text-sm font-semibold transition">
+                Save Settings
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Recent Alerts -->
+<div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
+    <h2 class="text-lg font-bold mb-4">📋 Recent Alerts</h2>
+
+    {% if recent_alerts %}
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b border-gray-800">
+                    <th class="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider py-2 px-3">Symbol
+                    </th>
+                    <th class="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider py-2 px-3">Message
+                    </th>
+                    <th class="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider py-2 px-3">Status
+                    </th>
+                    <th class="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider py-2 px-3">Time
+                    </th>
+                    <th class="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider py-2 px-3">Speed
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for alert in recent_alerts %}
+                <tr class="border-b border-gray-800/50 hover:bg-gray-800/30 transition">
+                    <td class="py-2.5 px-3 font-mono text-blue-400 text-xs">{{ alert.parsed_symbol or '—' }}</td>
+                    <td class="py-2.5 px-3 text-gray-300 max-w-[200px] truncate">{{ alert.parsed_message or
+                        alert.raw_text }}</td>
+                    <td class="py-2.5 px-3">
+                        {% if alert.status == 'discord_ok' %}
+                        <span
+                            class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">✓
+                            Sent</span>
+                        {% elif alert.status == 'queued' %}
+                        <span
+                            class="text-xs px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">⏳
+                            Queued</span>
+                        {% elif alert.status == 'screenshot_ok' %}
+                        <span
+                            class="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">📸
+                            Screenshot</span>
+                        {% else %}
+                        <span
+                            class="text-xs px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30"
+                            title="{{ alert.error_message or '' }}">✗ Failed</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-2.5 px-3 text-gray-500 text-xs">{{ alert.created_at.strftime('%H:%M:%S') if
+                        alert.created_at else '—' }}</td>
+                    <td class="py-2.5 px-3 text-right text-gray-500 text-xs font-mono">
+                        {{ (alert.processing_time_ms / 1000) | round(1) }}s
+                        {%- if alert.processing_time_ms -%}
+                        {%- endif -%}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-center py-10 text-gray-500">
+        <div class="text-3xl mb-3">📭</div>
+        <p>No alerts yet. Set up your TradingView alert to get started!</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- TradingView Setup Guide -->
+<div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6 mt-6">
+    <h2 class="text-lg font-bold mb-4">📖 Quick Setup Guide</h2>
+    <ol class="space-y-3 text-sm text-gray-300">
+        <li class="flex gap-3">
+            <span
+                class="flex-shrink-0 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold">1</span>
+            <span>Copy your webhook URL above</span>
+        </li>
+        <li class="flex gap-3">
+            <span
+                class="flex-shrink-0 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold">2</span>
+            <span>In TradingView, create or edit an alert → scroll to "Notifications"</span>
+        </li>
+        <li class="flex gap-3">
+            <span
+                class="flex-shrink-0 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold">3</span>
+            <span>Check "Webhook URL" and paste your URL</span>
+        </li>
+        <li class="flex gap-3">
+            <span
+                class="flex-shrink-0 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold">4</span>
+            <span>Set the alert message to include the ticker, e.g.: <code
+                    class="bg-gray-800 px-2 py-0.5 rounded text-blue-400">AAPL, breakout above 200</code></span>
+        </li>
+        <li class="flex gap-3">
+            <span
+                class="flex-shrink-0 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold">5</span>
+            <span>Save the alert — screenshots will appear in your Discord channel!</span>
+        </li>
+    </ol>
+</div>
+
+<script>
+    function copyWebhook() {
+        const input = document.getElementById('webhook-url');
+        navigator.clipboard.writeText(input.value);
+        const btn = document.getElementById('copy-btn');
+        btn.textContent = '✅ Copied!';
+        setTimeout(() => btn.textContent = '📋 Copy', 2000);
+    }
+</script>
+
+{% endblock %}
