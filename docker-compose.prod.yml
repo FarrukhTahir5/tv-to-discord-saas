@@ -9,8 +9,6 @@ services:
   # -----------------------------------------------------------------
   api:
     build: .
-    ports:
-      - "8000:8000"
     environment:
       RUN_MODE: api
       DATABASE_URL: ${DATABASE_URL}
@@ -56,3 +54,21 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+
+  # -----------------------------------------------------------------
+  # Caddy reverse proxy (Auto HTTPS)
+  # -----------------------------------------------------------------
+  caddy:
+    image: caddy:2-alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:
