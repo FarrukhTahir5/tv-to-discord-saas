@@ -61,7 +61,7 @@
             </span>
             {% if user.plan == 'free' %}
             <form method="POST" action="/billing/create-checkout">
-                <input type="hidden" name="price_id" value="">
+                <input type="hidden" name="variant_id" value="">
                 <button type="submit" class="text-xs text-blue-400 hover:underline">Upgrade to Pro →</button>
             </form>
             {% endif %}

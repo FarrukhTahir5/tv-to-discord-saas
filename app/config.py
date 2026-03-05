@@ -11,11 +11,12 @@ class Settings(BaseSettings):
     app_name: str = "ChartAlert"
     app_url: str = "http://localhost:8000"
 
-    # Stripe
-    stripe_secret_key: str = ""
-    stripe_webhook_secret: str = ""
-    stripe_price_id_monthly: str = ""
-    stripe_price_id_yearly: str = ""
+    # LemonSqueezy
+    lemonsqueezy_api_key: str = ""
+    lemonsqueezy_webhook_secret: str = ""
+    lemonsqueezy_store_id: str = ""
+    lemonsqueezy_variant_id_monthly: str = ""
+    lemonsqueezy_variant_id_yearly: str = ""
 
     # Plans
     free_alerts_per_day: int = 10

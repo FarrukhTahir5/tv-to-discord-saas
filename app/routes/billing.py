@@ -1,117 +1,146 @@
+"""
+LemonSqueezy billing routes — checkout + webhook handler.
+"""
+
+import hashlib
+import hmac
 from fastapi import APIRouter, Request, Depends, HTTPException
+from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-import stripe
 
 from app.config import settings
 from app.db import get_db
 from app.models.user import User
 from app.services.auth import get_current_user
+from app.services.lemonsqueezy_svc import create_checkout
 
-stripe.api_key = settings.stripe_secret_key
 router = APIRouter(prefix="/billing", tags=["billing"])
 
 
+# ------------------------------------------------------------------
+# Create checkout → redirect user to LemonSqueezy hosted page
+# ------------------------------------------------------------------
 @router.post("/create-checkout")
-async def create_checkout(
+async def billing_create_checkout(
     request: Request,
     user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
 ):
     form = await request.form()
-    price_id = form.get("price_id", settings.stripe_price_id_monthly)
+    variant_id = form.get("variant_id") or settings.lemonsqueezy_variant_id_monthly
 
-    # Get fresh user from DB
-    result = await db.execute(select(User).where(User.id == user.id))
-    db_user = result.scalar_one()
-
-    # Create or reuse Stripe customer
-    if not db_user.stripe_customer_id:
-        customer = stripe.Customer.create(
-            email=db_user.email,
-            metadata={"user_id": db_user.id},
-        )
-        db_user.stripe_customer_id = customer.id
-        await db.commit()
-
-    session = stripe.checkout.Session.create(
-        customer=db_user.stripe_customer_id,
-        payment_method_types=["card"],
-        line_items=[{"price": price_id, "quantity": 1}],
-        mode="subscription",
-        success_url=f"{settings.app_url}/dashboard?upgraded=true",
-        cancel_url=f"{settings.app_url}/dashboard",
+    checkout_url = await create_checkout(
+        user_id=user.id,
+        user_email=user.email,
+        variant_id=variant_id,
     )
-    from fastapi.responses import RedirectResponse
-    return RedirectResponse(url=session.url, status_code=303)
+    return RedirectResponse(url=checkout_url, status_code=303)
 
 
-@router.post("/stripe-webhook")
-async def stripe_webhook(
+# ------------------------------------------------------------------
+# LemonSqueezy webhook — verify signature, update user plan
+# ------------------------------------------------------------------
+@router.post("/lemonsqueezy-webhook")
+async def lemonsqueezy_webhook(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    payload = await request.body()
-    sig = request.headers.get("stripe-signature")
+    # 1. Verify webhook signature (HMAC-SHA256)
+    raw_body = await request.body()
+    sig = request.headers.get("x-signature", "")
 
-    try:
-        event = stripe.Webhook.construct_event(
-            payload, sig, settings.stripe_webhook_secret
-        )
-    except Exception:
+    expected = hmac.new(
+        settings.lemonsqueezy_webhook_secret.encode("utf-8"),
+        raw_body,
+        hashlib.sha256,
+    ).hexdigest()
+
+    if not hmac.compare_digest(expected, sig):
         raise HTTPException(400, "Invalid webhook signature")
 
-    await handle_stripe_event(event, db)
+    # 2. Parse the event
+    payload = await request.json()
+    event_name = payload.get("meta", {}).get("event_name", "")
+    custom_data = payload.get("meta", {}).get("custom_data", {})
+    user_id = custom_data.get("user_id")
+
+    if not user_id:
+        return {"received": True, "skipped": "no user_id in custom_data"}
+
+    attrs = payload.get("data", {}).get("attributes", {})
+
+    # 3. Handle events
+    if event_name == "subscription_created":
+        await _set_plan(
+            db,
+            user_id=user_id,
+            plan="pro",
+            ls_customer_id=str(attrs.get("customer_id", "")),
+            ls_subscription_id=str(payload["data"]["id"]),
+            subscription_status="active",
+        )
+
+    elif event_name == "subscription_updated":
+        status = attrs.get("status", "active")
+        plan = "pro" if status == "active" else "free"
+        await _set_plan(
+            db,
+            user_id=user_id,
+            plan=plan,
+            subscription_status=status,
+        )
+
+    elif event_name in ("subscription_cancelled", "subscription_expired"):
+        await _set_plan(
+            db,
+            user_id=user_id,
+            plan="free",
+            subscription_status="inactive",
+        )
+
+    elif event_name == "subscription_payment_success":
+        await _set_plan(
+            db,
+            user_id=user_id,
+            plan="pro",
+            subscription_status="active",
+        )
+
+    elif event_name == "subscription_payment_failed":
+        await _set_plan(
+            db,
+            user_id=user_id,
+            plan="free",
+            subscription_status="past_due",
+        )
+
     return {"received": True}
 
 
-async def handle_stripe_event(event, db: AsyncSession):
-    evt_type = event["type"]
-    data = event["data"]["object"]
-
-    if evt_type == "checkout.session.completed":
-        customer_id = data["customer"]
-        sub_id = data["subscription"]
-        await set_plan(db, customer_id, "pro", sub_id, "active")
-
-    elif evt_type == "invoice.payment_succeeded":
-        customer_id = data["customer"]
-        await set_plan(
-            db, customer_id, "pro", subscription_status="active"
-        )
-
-    elif evt_type in (
-        "invoice.payment_failed",
-        "customer.subscription.deleted",
-    ):
-        customer_id = data.get("customer")
-        await set_plan(
-            db, customer_id, "free", subscription_status="inactive"
-        )
-
-
-async def set_plan(
+# ------------------------------------------------------------------
+# Helper
+# ------------------------------------------------------------------
+async def _set_plan(
     db: AsyncSession,
-    customer_id: str,
+    user_id: str,
     plan: str,
-    sub_id: str | None = None,
+    ls_customer_id: str | None = None,
+    ls_subscription_id: str | None = None,
     subscription_status: str | None = None,
 ):
-    result = await db.execute(
-        select(User).where(User.stripe_customer_id == customer_id)
-    )
+    result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
         return
 
     user.plan = plan
     user.daily_limit = (
-        settings.pro_alerts_per_day
-        if plan == "pro"
-        else settings.free_alerts_per_day
+        settings.pro_alerts_per_day if plan == "pro" else settings.free_alerts_per_day
     )
-    if sub_id:
-        user.stripe_subscription_id = sub_id
+    if ls_customer_id:
+        user.ls_customer_id = ls_customer_id
+    if ls_subscription_id:
+        user.ls_subscription_id = ls_subscription_id
     if subscription_status:
         user.subscription_status = subscription_status
     await db.commit()

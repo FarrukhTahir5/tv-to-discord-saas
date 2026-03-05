@@ -39,8 +39,8 @@ def upgrade() -> None:
         sa.Column("alerts_reset_at", sa.Date(), nullable=True),
         # Billing
         sa.Column("plan", sa.String(), server_default="free"),
-        sa.Column("stripe_customer_id", sa.String(), nullable=True),
-        sa.Column("stripe_subscription_id", sa.String(), nullable=True),
+        sa.Column("ls_customer_id", sa.String(), nullable=True),
+        sa.Column("ls_subscription_id", sa.String(), nullable=True),
         sa.Column("subscription_status", sa.String(), server_default="inactive"),
         # Meta
         sa.Column("created_at", sa.DateTime(), server_default=sa.func.now()),

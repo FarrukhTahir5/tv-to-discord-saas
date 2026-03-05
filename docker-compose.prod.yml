@@ -13,12 +13,13 @@ services:
       RUN_MODE: api
       DATABASE_URL: ${DATABASE_URL}
       SECRET_KEY: ${SECRET_KEY}
-      APP_NAME: ${APP_NAME:-ChartAlert}
-      APP_URL: ${APP_URL}
-      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
-      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
-      STRIPE_PRICE_ID_MONTHLY: ${STRIPE_PRICE_ID_MONTHLY}
-      STRIPE_PRICE_ID_YEARLY: ${STRIPE_PRICE_ID_YEARLY}
+      APP_NAME: ${APP_NAME:-Chart Alert}
+      APP_URL: ${APP_URL:-https://chartalert.online}
+      LEMONSQUEEZY_API_KEY: ${LEMONSQUEEZY_API_KEY}
+      LEMONSQUEEZY_WEBHOOK_SECRET: ${LEMONSQUEEZY_WEBHOOK_SECRET}
+      LEMONSQUEEZY_STORE_ID: ${LEMONSQUEEZY_STORE_ID}
+      LEMONSQUEEZY_VARIANT_ID_MONTHLY: ${LEMONSQUEEZY_VARIANT_ID_MONTHLY}
+      LEMONSQUEEZY_VARIANT_ID_YEARLY: ${LEMONSQUEEZY_VARIANT_ID_YEARLY}
       REDIS_URL: ${REDIS_URL:-}
     command: >
       bash -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2"
@@ -38,8 +39,8 @@ services:
       RUN_MODE: worker
       DATABASE_URL: ${DATABASE_URL}
       SECRET_KEY: ${SECRET_KEY}
-      APP_NAME: ${APP_NAME:-ChartAlert}
-      APP_URL: ${APP_URL}
+      APP_NAME: ${APP_NAME:-Chart Alert}
+      APP_URL: ${APP_URL:-https://chartalert.online}
       REDIS_URL: ${REDIS_URL:-}
       SCREENSHOT_CONCURRENCY: ${SCREENSHOT_CONCURRENCY:-2}
     command: >

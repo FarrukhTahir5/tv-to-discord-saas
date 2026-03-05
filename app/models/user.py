@@ -41,12 +41,12 @@ class User(Base):
         Date, nullable=True
     )
 
-    # Billing
+    # Billing (LemonSqueezy)
     plan: Mapped[str] = mapped_column(String, default="free")
-    stripe_customer_id: Mapped[str | None] = mapped_column(
+    ls_customer_id: Mapped[str | None] = mapped_column(
         String, nullable=True
     )
-    stripe_subscription_id: Mapped[str | None] = mapped_column(
+    ls_subscription_id: Mapped[str | None] = mapped_column(
         String, nullable=True
     )
     subscription_status: Mapped[str] = mapped_column(
