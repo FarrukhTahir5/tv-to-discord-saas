@@ -1,9 +1,25 @@
 # Production Docker Compose — deploy API + Worker as separate services
 # Usage: docker compose -f docker-compose.prod.yml up -d
 
-version: "3.9"
-
 services:
+  # -----------------------------------------------------------------
+  # PostgreSQL database
+  # -----------------------------------------------------------------
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: chartapp
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-localpass}
+      POSTGRES_DB: chartapp
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chartapp"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   # -----------------------------------------------------------------
   # API service (HTTP, webhooks, dashboard — no browser)
   # -----------------------------------------------------------------
@@ -11,7 +27,7 @@ services:
     build: .
     environment:
       RUN_MODE: api
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: postgresql+asyncpg://chartapp:${POSTGRES_PASSWORD:-localpass}@db:5432/chartapp
       SECRET_KEY: ${SECRET_KEY}
       APP_NAME: ${APP_NAME:-Chart Alert}
       APP_URL: ${APP_URL:-https://chartalert.online}
@@ -21,6 +37,9 @@ services:
       LEMONSQUEEZY_VARIANT_ID_MONTHLY: ${LEMONSQUEEZY_VARIANT_ID_MONTHLY}
       LEMONSQUEEZY_VARIANT_ID_YEARLY: ${LEMONSQUEEZY_VARIANT_ID_YEARLY}
       REDIS_URL: ${REDIS_URL:-}
+    depends_on:
+      db:
+        condition: service_healthy
     command: >
       bash -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2"
     restart: always
@@ -37,12 +56,15 @@ services:
     build: .
     environment:
       RUN_MODE: worker
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: postgresql+asyncpg://chartapp:${POSTGRES_PASSWORD:-localpass}@db:5432/chartapp
       SECRET_KEY: ${SECRET_KEY}
       APP_NAME: ${APP_NAME:-Chart Alert}
       APP_URL: ${APP_URL:-https://chartalert.online}
       REDIS_URL: ${REDIS_URL:-}
       SCREENSHOT_CONCURRENCY: ${SCREENSHOT_CONCURRENCY:-2}
+    depends_on:
+      db:
+        condition: service_healthy
     command: >
       bash -c "uvicorn app.main:app --host 0.0.0.0 --port 8001 --workers 1"
     restart: always
@@ -71,5 +93,6 @@ services:
       - caddy_config:/config
 
 volumes:
+  postgres_data:
   caddy_data:
   caddy_config:
