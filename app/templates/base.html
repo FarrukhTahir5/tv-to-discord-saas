@@ -40,6 +40,7 @@
       <a href="/dashboard" class="text-sm text-gray-400 hover:text-white transition">Dashboard</a>
       <a href="/auth/logout" class="text-sm text-gray-500 hover:text-white transition">Logout</a>
       {% else %}
+      <a href="/pricing" class="text-sm text-gray-400 hover:text-white transition">Pricing</a>
       <a href="/login" class="text-sm text-gray-400 hover:text-white transition">Login</a>
       <a href="/register"
         class="text-sm px-4 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-lg font-medium transition">Sign Up</a>
@@ -52,8 +53,15 @@
   </main>
 
   <footer class="border-t border-gray-800 py-8 mt-20">
-    <div class="max-w-5xl mx-auto px-6 text-center text-sm text-gray-600">
-      &copy; 2025 {{ app_name | default('ChartAlert') }}. All rights reserved.
+    <div class="max-w-5xl mx-auto px-6 flex flex-col items-center gap-3">
+      <div class="flex items-center gap-4 text-sm text-gray-500">
+        <a href="/pricing" class="hover:text-gray-300 transition">Pricing</a>
+        <span class="text-gray-700">·</span>
+        <a href="/terms" class="hover:text-gray-300 transition">Terms & Conditions</a>
+      </div>
+      <div class="text-sm text-gray-600">
+        &copy; 2025 {{ app_name | default('ChartAlert') }}. All rights reserved.
+      </div>
     </div>
   </footer>
 

@@ -113,6 +113,25 @@ async def register_page(request: Request):
         {"request": request, "user": None, "app_name": settings.app_name, "title": "Sign Up"},
     )
 
+
+@app.get("/pricing")
+async def pricing_page(request: Request):
+    user = await get_current_user_optional(request)
+    return templates.TemplateResponse(
+        "pricing.html",
+        {"request": request, "user": user, "app_name": settings.app_name, "title": "Pricing"},
+    )
+
+
+@app.get("/terms")
+async def terms_page(request: Request):
+    user = await get_current_user_optional(request)
+    return templates.TemplateResponse(
+        "terms.html",
+        {"request": request, "user": user, "app_name": settings.app_name, "app_url": settings.app_url, "title": "Terms & Conditions"},
+    )
+
+
 # ------------------------------------------------------------------
 # Health checks
 # ------------------------------------------------------------------

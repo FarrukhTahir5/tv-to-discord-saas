@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% block title %}Pricing{% endblock %}
+{% block content %}
+<div class="text-center py-16">
+    <!-- Header -->
+    <div
+        class="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/30 rounded-full px-4 py-1.5 text-xs font-semibold text-blue-400 uppercase tracking-wider mb-6">
+        💎 Simple, transparent pricing
+    </div>
+
+    <h1 class="text-4xl md:text-5xl font-extrabold mb-4">
+        <span class="bg-gradient-to-r from-white via-blue-400 to-emerald-400 bg-clip-text text-transparent">
+            Choose Your Plan
+        </span>
+    </h1>
+    <p class="text-lg text-gray-400 max-w-xl mx-auto mb-4">
+        Start free. Upgrade when you need more power.
+    </p>
+
+    <!-- Billing toggle -->
+    <div class="flex items-center justify-center gap-3 mb-12">
+        <span id="label-monthly" class="text-sm font-semibold text-white">Monthly</span>
+        <button id="billing-toggle" onclick="toggleBilling()"
+            class="relative w-14 h-7 bg-gray-700 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+            <div id="toggle-dot"
+                class="absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full transition-transform shadow-lg">
+            </div>
+        </button>
+        <span id="label-yearly" class="text-sm font-medium text-gray-500">Yearly
+            <span class="text-emerald-400 text-xs font-bold ml-1">Save 20%</span>
+        </span>
+    </div>
+
+    <!-- Plans -->
+    <div class="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+        <!-- Free -->
+        <div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-8 text-left flex flex-col">
+            <div class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Free</div>
+            <div class="text-4xl font-extrabold mb-1">$0</div>
+            <div class="text-sm text-gray-500 mb-6">forever</div>
+            <ul class="space-y-3 text-sm text-gray-300 flex-1">
+                <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> 1 alert per day</li>
+                <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Chart screenshots</li>
+                <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Discord rich embeds</li>
+                <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Unique webhook URL</li>
+                <li class="flex items-center gap-2"><span class="text-gray-600">✗</span> <span
+                        class="text-gray-500">Priority processing</span></li>
+                <li class="flex items-center gap-2"><span class="text-gray-600">✗</span> <span
+                        class="text-gray-500">Email support</span></li>
+            </ul>
+            <a href="/register"
+                class="block mt-8 text-center py-3 border border-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-800 transition">
+                Get Started Free
+            </a>
+        </div>
+
+        <!-- Pro (highlighted) -->
+        <div
+            class="bg-gray-900/50 border-2 border-blue-500/40 rounded-2xl p-8 text-left flex flex-col relative shadow-lg shadow-blue-500/5 md:scale-105">
+            <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-xs font-bold px-4 py-1 rounded-full">
+                MOST POPULAR
+            </div>
+            <div class="text-sm font-semibold text-blue-400 uppercase tracking-wider mb-2">Pro</div>
+            <div class="flex items-baseline gap-1">
+                <span id="pro-price" class="text-4xl font-extrabold">$15</span>
+                <span id="pro-period" class="text-lg font-normal text-gray-500">/mo</span>
+            </div>
+            <div id="pro-billing-note" class="text-sm text-gray-500 mb-6">billed monthly</div>
+            <ul class="space-y-3 text-sm text-gray-300 flex-1">
+                <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> 500 alerts per day</li>
+                <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> Chart screenshots</li>
+                <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> Discord rich embeds</li>
+                <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> Unique webhook URL</li>
+                <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> Priority processing</li>
+                <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> Email support</li>
+            </ul>
+            <a href="/register"
+                class="block mt-8 text-center py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold transition shadow-lg shadow-blue-600/20">
+                Start Pro Trial →
+            </a>
+        </div>
+
+        <!-- Enterprise -->
+        <div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-8 text-left flex flex-col">
+            <div class="text-sm font-semibold text-purple-400 uppercase tracking-wider mb-2">Enterprise</div>
+            <div class="text-4xl font-extrabold mb-1">Custom</div>
+            <div class="text-sm text-gray-500 mb-6">tailored for your team</div>
+            <ul class="space-y-3 text-sm text-gray-300 flex-1">
+                <li class="flex items-center gap-2"><span class="text-purple-400">✓</span> Unlimited alerts</li>
+                <li class="flex items-center gap-2"><span class="text-purple-400">✓</span> Chart screenshots</li>
+                <li class="flex items-center gap-2"><span class="text-purple-400">✓</span> Multiple Discord channels
+                </li>
+                <li class="flex items-center gap-2"><span class="text-purple-400">✓</span> Custom integrations</li>
+                <li class="flex items-center gap-2"><span class="text-purple-400">✓</span> Dedicated support</li>
+                <li class="flex items-center gap-2"><span class="text-purple-400">✓</span> SLA guarantee</li>
+            </ul>
+            <a href="mailto:support@chartalert.online"
+                class="block mt-8 text-center py-3 border border-purple-500/30 rounded-xl text-sm font-semibold text-purple-400 hover:bg-purple-500/10 transition">
+                Contact Us
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- FAQ -->
+<div class="mt-24 max-w-2xl mx-auto">
+    <h2 class="text-2xl font-bold text-center mb-10">Frequently Asked Questions</h2>
+
+    <div class="space-y-4">
+        <details class="group bg-gray-900/50 border border-gray-800 rounded-xl px-6 py-4 cursor-pointer">
+            <summary class="flex justify-between items-center font-semibold text-sm">
+                How does ChartAlert work?
+                <span class="text-gray-500 group-open:rotate-45 transition-transform text-lg">+</span>
+            </summary>
+            <p class="text-sm text-gray-400 mt-3">
+                You get a unique webhook URL from your dashboard. Add this URL to any TradingView alert.
+                When the alert fires, we capture a live chart screenshot and post it to your Discord channel — fully
+                automated.
+            </p>
+        </details>
+
+        <details class="group bg-gray-900/50 border border-gray-800 rounded-xl px-6 py-4 cursor-pointer">
+            <summary class="flex justify-between items-center font-semibold text-sm">
+                Can I cancel anytime?
+                <span class="text-gray-500 group-open:rotate-45 transition-transform text-lg">+</span>
+            </summary>
+            <p class="text-sm text-gray-400 mt-3">
+                Yes! You can cancel your Pro subscription at any time from your dashboard. You'll keep Pro access until
+                the end of your current billing period.
+            </p>
+        </details>
+
+        <details class="group bg-gray-900/50 border border-gray-800 rounded-xl px-6 py-4 cursor-pointer">
+            <summary class="flex justify-between items-center font-semibold text-sm">
+                What payment methods do you accept?
+                <span class="text-gray-500 group-open:rotate-45 transition-transform text-lg">+</span>
+            </summary>
+            <p class="text-sm text-gray-400 mt-3">
+                We accept all major credit cards, debit cards, and PayPal through our payment processor, Paddle.
+                Payments are secure and PCI compliant.
+            </p>
+        </details>
+
+        <details class="group bg-gray-900/50 border border-gray-800 rounded-xl px-6 py-4 cursor-pointer">
+            <summary class="flex justify-between items-center font-semibold text-sm">
+                What happens when I hit my daily limit?
+                <span class="text-gray-500 group-open:rotate-45 transition-transform text-lg">+</span>
+            </summary>
+            <p class="text-sm text-gray-400 mt-3">
+                Alerts beyond your daily limit are dropped and won't be forwarded to Discord. Your counter resets at
+                midnight UTC each day. Upgrade to Pro for 500 alerts/day.
+            </p>
+        </details>
+    </div>
+</div>
+
+<!-- CTA -->
+<div class="mt-24 text-center">
+    <div class="bg-gradient-to-r from-blue-600/20 to-emerald-600/20 border border-blue-500/20 rounded-2xl p-12">
+        <h2 class="text-2xl font-bold mb-3">Ready to automate your alerts?</h2>
+        <p class="text-gray-400 mb-6">Set up in under 2 minutes. No credit card required.</p>
+        <a href="/register"
+            class="inline-block px-8 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-white font-semibold transition-all hover:shadow-lg hover:shadow-blue-500/25">
+            Get Started Free →
+        </a>
+    </div>
+</div>
+
+<script>
+    let isYearly = false;
+    function toggleBilling() {
+        isYearly = !isYearly;
+        const dot = document.getElementById('toggle-dot');
+        const toggle = document.getElementById('billing-toggle');
+        const price = document.getElementById('pro-price');
+        const period = document.getElementById('pro-period');
+        const note = document.getElementById('pro-billing-note');
+        const labelM = document.getElementById('label-monthly');
+        const labelY = document.getElementById('label-yearly');
+
+        if (isYearly) {
+            dot.style.transform = 'translateX(28px)';
+            toggle.classList.replace('bg-gray-700', 'bg-blue-600');
+            price.textContent = '$12';
+            period.textContent = '/mo';
+            note.textContent = 'billed $144/year';
+            labelM.classList.replace('text-white', 'text-gray-500');
+            labelM.classList.replace('font-semibold', 'font-medium');
+            labelY.classList.replace('text-gray-500', 'text-white');
+            labelY.classList.replace('font-medium', 'font-semibold');
+        } else {
+            dot.style.transform = 'translateX(0)';
+            toggle.classList.replace('bg-blue-600', 'bg-gray-700');
+            price.textContent = '$15';
+            period.textContent = '/mo';
+            note.textContent = 'billed monthly';
+            labelM.classList.replace('text-gray-500', 'text-white');
+            labelM.classList.replace('font-medium', 'font-semibold');
+            labelY.classList.replace('text-white', 'text-gray-500');
+            labelY.classList.replace('font-semibold', 'font-medium');
+        }
+    }
+</script>
+{% endblock %}
