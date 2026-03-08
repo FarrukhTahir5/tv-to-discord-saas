@@ -62,7 +62,7 @@
             </div>
             <div class="text-sm font-semibold text-blue-400 uppercase tracking-wider mb-2">Pro</div>
             <div class="flex items-baseline gap-1">
-                <span id="pro-price" class="text-4xl font-extrabold">$15</span>
+                <span id="pro-price" class="text-4xl font-extrabold">$50</span>
                 <span id="pro-period" class="text-lg font-normal text-gray-500">/mo</span>
             </div>
             <div id="pro-billing-note" class="text-sm text-gray-500 mb-6">billed monthly</div>
@@ -181,9 +181,9 @@
         if (isYearly) {
             dot.style.transform = 'translateX(28px)';
             toggle.classList.replace('bg-gray-700', 'bg-blue-600');
-            price.textContent = '$12';
+            price.textContent = '$40';
             period.textContent = '/mo';
-            note.textContent = 'billed $144/year';
+            note.textContent = 'billed $480/year';
             labelM.classList.replace('text-white', 'text-gray-500');
             labelM.classList.replace('font-semibold', 'font-medium');
             labelY.classList.replace('text-gray-500', 'text-white');
@@ -191,7 +191,7 @@
         } else {
             dot.style.transform = 'translateX(0)';
             toggle.classList.replace('bg-blue-600', 'bg-gray-700');
-            price.textContent = '$15';
+            price.textContent = '$50';
             period.textContent = '/mo';
             note.textContent = 'billed monthly';
             labelM.classList.replace('text-gray-500', 'text-white');
