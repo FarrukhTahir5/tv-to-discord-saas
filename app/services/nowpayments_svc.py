@@ -15,8 +15,7 @@ NP_API_BASE = "https://api.nowpayments.io/v1"
 async def _get_auth_token() -> str:
     """
     Authenticate with NowPayments and return the JWT token.
-    Required for Recurring Payments (Subscriptions) API.
-    The token expires every 5 minutes.
+    Required for some Recurring Payments endpoints.
     """
     payload = {
         "email": settings.nowpayments_email,
@@ -42,22 +41,24 @@ async def _get_auth_token() -> str:
             return data.get("token")
 
 
-async def create_email_subscription(email: str, plan_id: str) -> str:
+async def create_email_subscription(email_addr: str, plan_id: str) -> str:
     """
     Create a recurring payment subscription by email.
     NowPayments will send an email invoice to the user.
     """
-    # 1. Get JWT Token (Required for Subscriptions API)
-    token = await _get_auth_token()
-
+    # Documentation fix: The field must be 'email', not 'subscriber_email'.
     payload = {
         "subscription_plan_id": int(plan_id),
-        "subscriber_email": email,
+        "email": email_addr,
     }
 
+    # Some endpoints work with x-api-key, others need Bearer JWT.
+    # We provide BOTH to be safe, as NP can be picky.
+    token = await _get_auth_token()
+
     headers = {
-        "Authorization": f"Bearer {token}",
         "x-api-key": settings.nowpayments_api_key,
+        "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
     }
 
