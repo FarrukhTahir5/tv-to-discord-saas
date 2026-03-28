@@ -35,15 +35,39 @@ async def billing_create_checkout(
     )
 
     try:
-        sub_id = await create_email_subscription(user.email, plan_id)
+        # 3. Create NowPayments Subscription (Email flow)
+        subscription_id = await create_email_subscription(user.email, plan_id)
         
-        # Update user with sub_id
-        user.np_subscriber_id = str(sub_id)
+        # 4. Save subscriber ID to user
+        result = await db.execute(select(User).where(User.id == user.id))
+        db_user = result.scalar_one()
+        db_user.np_subscriber_id = subscription_id
         await db.commit()
-        
-        return RedirectResponse(url="/dashboard?upgraded=pending", status_code=303)
+
+        return templates.TemplateResponse(
+            "billing_success.html",
+            {
+                "request": request,
+                "user": user,
+                "title": "Success",
+                "message": "Awesome! NowPayments has emailed you an invoice. Please pay it to activate your Pro plan."
+            },
+        )
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        error_msg = str(e)
+        if "already subscribed" in error_msg.lower():
+            # If already subscribed, just inform them
+            return templates.TemplateResponse(
+                "billing_success.html",
+                {
+                    "request": request,
+                    "user": user,
+                    "title": "Already Subscribed",
+                    "message": "It looks like you already have a subscription for this plan! Please check your email for the NowPayments invoice."
+                },
+            )
+        # Otherwise re-raise or handle normally
+        raise HTTPException(status_code=400, detail=error_msg)
 
 
 # ------------------------------------------------------------------
