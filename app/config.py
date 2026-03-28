@@ -11,12 +11,11 @@ class Settings(BaseSettings):
     app_name: str = "ChartAlert"
     app_url: str = "http://localhost:8000"
 
-    # LemonSqueezy
-    lemonsqueezy_api_key: str = ""
-    lemonsqueezy_webhook_secret: str = ""
-    lemonsqueezy_store_id: str = ""
-    lemonsqueezy_variant_id_monthly: str = ""
-    lemonsqueezy_variant_id_yearly: str = ""
+    # NowPayments
+    nowpayments_api_key: str = ""
+    nowpayments_ipn_secret: str = ""
+    nowpayments_plan_id_monthly: str = "1796142641"
+    nowpayments_plan_id_yearly: str = "1156416554"
 
     # Plans
     free_alerts_per_day: int = 10

@@ -74,10 +74,13 @@
                 <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> Priority processing</li>
                 <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> Email support</li>
             </ul>
-            <a href="/register"
-                class="block mt-8 text-center py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold transition shadow-lg shadow-blue-600/20">
-                Start Pro Trial →
-            </a>
+            <form action="/billing/create-checkout" method="POST" id="pro-form">
+                <input type="hidden" name="plan_type" id="plan-type-input" value="monthly">
+                <button type="submit"
+                    class="w-full mt-8 text-center py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold transition shadow-lg shadow-blue-600/20">
+                    Upgrade to Pro →
+                </button>
+            </form>
         </div>
 
         <!-- Enterprise -->
@@ -136,8 +139,8 @@
                 <span class="text-gray-500 group-open:rotate-45 transition-transform text-lg">+</span>
             </summary>
             <p class="text-sm text-gray-400 mt-3">
-                We accept all major credit cards, debit cards, and PayPal through our payment processor, Paddle.
-                Payments are secure and PCI compliant.
+                We accept various cryptocurrencies (BTC, ETH, LTC, USDT, etc.) through our payment processor, NowPayments.
+                Payments are secure and processed directly via the blockchain.
             </p>
         </details>
 
@@ -177,6 +180,7 @@
         const note = document.getElementById('pro-billing-note');
         const labelM = document.getElementById('label-monthly');
         const labelY = document.getElementById('label-yearly');
+        const planInput = document.getElementById('plan-type-input');
 
         if (isYearly) {
             dot.style.transform = 'translateX(28px)';
@@ -188,6 +192,7 @@
             labelM.classList.replace('font-semibold', 'font-medium');
             labelY.classList.replace('text-gray-500', 'text-white');
             labelY.classList.replace('font-medium', 'font-semibold');
+            planInput.value = 'yearly';
         } else {
             dot.style.transform = 'translateX(0)';
             toggle.classList.replace('bg-blue-600', 'bg-gray-700');
@@ -198,6 +203,7 @@
             labelM.classList.replace('font-medium', 'font-semibold');
             labelY.classList.replace('text-white', 'text-gray-500');
             labelY.classList.replace('font-semibold', 'font-medium');
+            planInput.value = 'monthly';
         }
     }
 </script>

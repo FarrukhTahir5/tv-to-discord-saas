@@ -25,11 +25,7 @@ async def check_and_increment_usage(user_id: str) -> bool:
             user.alerts_reset_at = today
 
         # Check limit based on plan
-        limit = (
-            settings.pro_alerts_per_day
-            if user.plan == "pro"
-            else settings.free_alerts_per_day
-        )
+        limit = user.effective_daily_limit
 
         if user.alerts_used_today >= limit:
             await db.commit()

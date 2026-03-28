@@ -55,11 +55,11 @@
 
         <div class="mt-3 flex items-center justify-between">
             <span class="text-xs px-2 py-0.5 rounded-full font-semibold
-        {% if user.plan == 'pro' %}bg-blue-500/20 text-blue-400 border border-blue-500/30
+        {% if user.effective_plan == 'pro' %}bg-blue-500/20 text-blue-400 border border-blue-500/30
         {% else %}bg-gray-700/50 text-gray-400 border border-gray-600{% endif %}">
-                {{ user.plan | upper }} Plan
+                {{ user.effective_plan | upper }} Plan
             </span>
-            {% if user.plan == 'free' %}
+            {% if user.effective_plan == 'free' %}
             <form method="POST" action="/billing/create-checkout">
                 <input type="hidden" name="variant_id" value="">
                 <button type="submit" class="text-xs text-blue-400 hover:underline">Upgrade to Pro →</button>

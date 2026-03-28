@@ -41,19 +41,31 @@ class User(Base):
         Date, nullable=True
     )
 
-    # Billing (LemonSqueezy)
+    # Billing (NowPayments)
     plan: Mapped[str] = mapped_column(String, default="free")
-    ls_customer_id: Mapped[str | None] = mapped_column(
-        String, nullable=True
-    )
-    ls_subscription_id: Mapped[str | None] = mapped_column(
-        String, nullable=True
-    )
-    subscription_status: Mapped[str] = mapped_column(
-        String, default="inactive"
-    )
+    np_subscriber_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    subscription_status: Mapped[str] = mapped_column(String, default="inactive")
 
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime, default=func.now()
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    @property
+    def effective_plan(self) -> str:
+        """Returns 'pro' for admin email, otherwise original plan."""
+        if self.email == "farrukhtahir5@gmail.com":
+            return "pro"
+        return self.plan
+
+    @property
+    def effective_daily_limit(self) -> int:
+        """Returns pro limit for admin email, otherwise plan limit."""
+        from app.config import settings
+        if self.email == "farrukhtahir5@gmail.com":
+            return settings.pro_alerts_per_day
+        return (
+            settings.pro_alerts_per_day
+            if self.plan == "pro"
+            else settings.free_alerts_per_day
+        )

@@ -38,11 +38,7 @@ async def dashboard(
     recent_alerts = result.scalars().all()
 
     webhook_url = f"{settings.app_url}/webhook/{user.webhook_token}"
-    alert_limit = (
-        settings.pro_alerts_per_day
-        if user.plan == "pro"
-        else settings.free_alerts_per_day
-    )
+    alert_limit = user.effective_daily_limit
 
     return templates.TemplateResponse(
         "dashboard.html",
