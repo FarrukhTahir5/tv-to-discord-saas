@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     # NowPayments
     nowpayments_api_key: str = ""
     nowpayments_ipn_secret: str = ""
+    nowpayments_email: str = ""
+    nowpayments_password: str = ""
     nowpayments_plan_id_monthly: str = "1796142641"
     nowpayments_plan_id_yearly: str = "1156416554"
 
