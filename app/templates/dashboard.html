@@ -32,40 +32,57 @@
 <!-- Usage + Settings Grid -->
 <div class="grid md:grid-cols-2 gap-6 mb-6">
 
-    <!-- Usage -->
-    <div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
+    <!-- Usage Card -->
+    <div class="relative overflow-hidden bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
         <h2 class="text-lg font-bold mb-4">📊 Today's Usage</h2>
 
         {% set usage_pct = ((user.alerts_used_today / alert_limit) * 100) | int if alert_limit > 0 else 0 %}
 
         <div class="flex items-end justify-between mb-2">
             <span
-                class="text-3xl font-extrabold
-        {% if usage_pct >= 90 %}text-red-400{% elif usage_pct >= 70 %}text-orange-400{% else %}text-blue-400{% endif %}">
+                class="text-4xl font-extrabold
+        {% if usage_pct >= 90 %}text-red-400{% elif usage_pct >= 70 %}text-orange-400{% else %}text-white{% endif %}">
                 {{ user.alerts_used_today }}
             </span>
-            <span class="text-sm text-gray-500">/ {{ alert_limit }} alerts</span>
+            <span class="text-sm text-gray-500 font-medium">/ {{ alert_limit }} alerts today</span>
         </div>
 
-        <div class="w-full bg-gray-800 rounded-full h-2.5 overflow-hidden">
-            <div class="h-full rounded-full transition-all duration-500
-        {% if usage_pct >= 90 %}bg-red-500{% elif usage_pct >= 70 %}bg-orange-500{% else %}bg-blue-500{% endif %}"
+        <div class="w-full bg-gray-800/50 rounded-full h-3 overflow-hidden border border-gray-700/30">
+            <div class="h-full rounded-full transition-all duration-700 ease-out
+        {% if usage_pct >= 90 %}bg-gradient-to-r from-red-600 to-orange-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]
+        {% elif usage_pct >= 70 %}bg-gradient-to-r from-orange-500 to-yellow-400
+        {% else %}bg-gradient-to-r from-blue-600 to-indigo-500 shadow-[0_0_15px_rgba(37,99,235,0.2)]{% endif %}"
                 style="width: {{ [usage_pct, 100] | min }}%"></div>
         </div>
 
-        <div class="mt-3 flex items-center justify-between">
-            <span class="text-xs px-2 py-0.5 rounded-full font-semibold
-        {% if user.effective_plan == 'pro' %}bg-blue-500/20 text-blue-400 border border-blue-500/30
-        {% else %}bg-gray-700/50 text-gray-400 border border-gray-600{% endif %}">
-                {{ user.effective_plan | upper }} Plan
-            </span>
-            {% if user.effective_plan == 'free' %}
-            <form method="POST" action="/billing/create-checkout">
-                <input type="hidden" name="variant_id" value="">
-                <button type="submit" class="text-xs text-blue-400 hover:underline">Upgrade to Pro →</button>
-            </form>
-            {% endif %}
+        {% if user.effective_plan == 'free' %}
+        <!-- Premium Upgrade CTA -->
+        <div class="mt-8 relative group">
+            <div class="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl blur opacity-30 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"></div>
+            <div class="relative bg-gray-950 border border-white/5 rounded-2xl p-5 overflow-hidden">
+                <div class="absolute top-0 right-0 p-3 opacity-10">
+                    <svg class="w-16 h-16 text-blue-500" fill="currentColor" viewBox="0 0 20 20"><path d="M11 3a1 1 0 10-2 0v1a1 1 0 102 0V3zM15.657 5.757a1 1 0 00-1.414-1.414l-.707.707a1 1 0 001.414 1.414l.707-.707zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zM5.05 6.464A1 1 0 106.464 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zM5 10a1 1 0 01-1 1H3a1 1 0 110-2h1a1 1 0 011 1zM8 16v-1h4v1a2 2 0 11-4 0zM12 14c.015-.34.208-.646.477-.859C13.487 12.311 14 11.231 14 10a4 4 0 10-8 0c0 1.231.513 2.311 1.523 3.141.269.213.462.519.477.859h4z"></path></svg>
+                </div>
+                <h3 class="text-sm font-bold text-white mb-2">Unlock Unlimited Potential</h3>
+                <ul class="text-xs text-gray-400 space-y-2 mb-6">
+                    <li class="flex items-center gap-2"><span class="text-blue-400">⚡</span> 500 alerts/day instead of 10</li>
+                    <li class="flex items-center gap-2"><span class="text-purple-400">🚀</span> Priority processing speed</li>
+                    <li class="flex items-center gap-2"><span class="text-blue-400">💎</span> Dedicated email support</li>
+                </ul>
+                <form method="POST" action="/billing/create-checkout">
+                    <button type="submit" 
+                        class="w-full py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-600/20 transition-all transform hover:scale-[1.02] active:scale-[0.98]">
+                        Upgrade to Pro Now →
+                    </button>
+                </form>
+            </div>
         </div>
+        {% else %}
+        <div class="mt-6 flex items-center justify-between py-3 px-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+            <span class="text-xs font-bold text-blue-400 tracking-wider">🌟 PRO FEATURES ACTIVE</span>
+            <span class="text-[10px] text-blue-500/60 uppercase font-mono">Priority Tier</span>
+        </div>
+        {% endif %}
     </div>
 
     <!-- Settings -->

@@ -71,11 +71,13 @@ from app.routes.auth import router as auth_router         # noqa: E402
 from app.routes.webhook import router as webhook_router   # noqa: E402
 from app.routes.dashboard import router as dashboard_router  # noqa: E402
 from app.routes.billing import router as billing_router   # noqa: E402
+from app.routes.admin import router as admin_router     # noqa: E402
 
 app.include_router(auth_router)
 app.include_router(webhook_router)
 app.include_router(dashboard_router)
 app.include_router(billing_router)
+app.include_router(admin_router)
 
 # ------------------------------------------------------------------
 # Page routes (landing, login, register)

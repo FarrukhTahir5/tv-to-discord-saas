@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard{% endblock %}
+{% block content %}
+
+<div class="mb-8 flex items-baseline justify-between">
+    <h1 class="text-3xl font-extrabold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
+        Admin Dashboard
+    </h1>
+    <span class="text-xs text-gray-500 uppercase tracking-widest font-semibold">Internal Monitoring Only</span>
+</div>
+
+<!-- Stats Cards -->
+<div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+    <div class="bg-gray-900/50 border border-gray-800 p-5 rounded-2xl">
+        <div class="text-xs font-semibold text-gray-500 uppercase mb-1">Total Users</div>
+        <div class="text-2xl font-bold text-white">{{ "{:,}".format(total_users) }}</div>
+    </div>
+    <div class="bg-blue-600/10 border border-blue-500/20 p-5 rounded-2xl">
+        <div class="text-xs font-semibold text-blue-400 uppercase mb-1">Pro Users</div>
+        <div class="text-2xl font-bold text-blue-400">{{ "{:,}".format(pro_users) }}</div>
+    </div>
+    <div class="bg-gray-900/50 border border-gray-800 p-5 rounded-2xl">
+        <div class="text-xs font-semibold text-gray-500 uppercase mb-1">Free Users</div>
+        <div class="text-2xl font-bold text-white">{{ "{:,}".format(free_users) }}</div>
+    </div>
+    <div class="bg-emerald-600/10 border border-emerald-500/20 p-5 rounded-2xl">
+        <div class="text-xs font-semibold text-emerald-400 uppercase mb-1">Alerts Today</div>
+        <div class="text-2xl font-bold text-emerald-400">{{ "{:,}".format(today_alerts) }}</div>
+    </div>
+    <div class="bg-gray-900/50 border border-gray-800 p-5 rounded-2xl">
+        <div class="text-xs font-semibold text-gray-500 uppercase mb-1">Total Alerts</div>
+        <div class="text-2xl font-bold text-white">{{ "{:,}".format(total_alerts) }}</div>
+    </div>
+</div>
+
+<!-- User Table -->
+<div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
+    <div class="flex items-center justify-between mb-6">
+        <h2 class="text-lg font-bold">Latest Users</h2>
+        <input type="text" id="user-search" placeholder="Search by email..." 
+               class="bg-gray-800 border border-gray-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-blue-500/50 w-64">
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+            <thead>
+                <tr class="text-gray-500 border-b border-gray-800">
+                    <th class="pb-3 px-2 font-semibold">Email</th>
+                    <th class="pb-3 px-2 font-semibold">Plan</th>
+                    <th class="pb-3 px-2 font-semibold">Status</th>
+                    <th class="pb-3 px-2 font-semibold">Joined</th>
+                    <th class="pb-3 px-2 font-semibold">Used Today</th>
+                </tr>
+            </thead>
+            <tbody id="user-table-body">
+                {% for u in users %}
+                <tr class="border-b border-gray-800/50 hover:bg-white/5 transition-colors">
+                    <td class="py-4 px-2 font-medium text-gray-200">{{ u.email }}</td>
+                    <td class="py-4 px-2">
+                        {% if u.effective_plan == 'pro' %}
+                        <span class="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-bold uppercase">PRO</span>
+                        {% else %}
+                        <span class="px-2 py-0.5 rounded-full bg-gray-700/30 text-gray-500 border border-gray-600/30 text-xs font-medium uppercase">FREE</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-4 px-2">
+                        <span class="flex items-center gap-1.5 text-xs {% if u.is_active %}text-emerald-400{% else %}text-red-400{% endif %}">
+                            <span class="w-1.5 h-1.5 rounded-full {% if u.is_active %}bg-emerald-400{% else %}bg-red-400{% endif %}"></span>
+                            {{ 'Active' if u.is_active else 'Inactive' }}
+                        </span>
+                    </td>
+                    <td class="py-4 px-2 text-gray-500">{{ u.created_at.strftime('%Y-%m-%d') }}</td>
+                    <td class="py-4 px-2 text-gray-400 font-mono">{{ u.alerts_used_today }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    document.getElementById('user-search').addEventListener('input', function(e) {
+        const term = e.target.value.toLowerCase();
+        const rows = document.querySelectorAll('#user-table-body tr');
+        rows.forEach(row => {
+            const email = row.cells[0].textContent.toLowerCase();
+            row.style.display = email.includes(term) ? '' : 'none';
+        });
+    });
+</script>
+
+{% endblock %}
