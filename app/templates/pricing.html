@@ -76,9 +76,16 @@
             </ul>
             <form action="/billing/create-checkout" method="POST" id="pro-form">
                 <input type="hidden" name="plan_type" id="plan-type-input" value="monthly">
-                <button type="submit"
+                <input type="hidden" name="gateway" id="gateway-input" value="gumroad">
+                
+                <button type="submit" onclick="document.getElementById('gateway-input').value='gumroad'"
                     class="w-full mt-8 text-center py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold transition shadow-lg shadow-blue-600/20">
-                    Upgrade to Pro →
+                    Upgrade with Card / PayPal →
+                </button>
+
+                <button type="submit" onclick="document.getElementById('gateway-input').value='nowpayments'"
+                    class="w-full mt-3 text-center py-2 border border-gray-700 rounded-xl text-xs font-medium text-gray-400 hover:bg-gray-800 transition">
+                    Pay with Crypto (Alt)
                 </button>
             </form>
         </div>
@@ -139,8 +146,7 @@
                 <span class="text-gray-500 group-open:rotate-45 transition-transform text-lg">+</span>
             </summary>
             <p class="text-sm text-gray-400 mt-3">
-                We accept various cryptocurrencies (BTC, ETH, LTC, USDT, etc.) through our payment processor, NowPayments.
-                Payments are secure and processed directly via the blockchain.
+                We accept Credit Cards, Apple Pay, and PayPal through Gumroad. We also support over 50 cryptocurrencies (BTC, ETH, LTC, etc.) via NowPayments.
             </p>
         </details>
 

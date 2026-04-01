@@ -41,9 +41,10 @@ class User(Base):
         Date, nullable=True
     )
 
-    # Billing (NowPayments)
+    # Billing
     plan: Mapped[str] = mapped_column(String, default="free")
     np_subscriber_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    gumroad_id: Mapped[str | None] = mapped_column(String, nullable=True)
     subscription_status: Mapped[str] = mapped_column(String, default="inactive")
 
     created_at: Mapped[datetime.datetime] = mapped_column(

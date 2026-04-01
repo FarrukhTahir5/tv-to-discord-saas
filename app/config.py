@@ -19,6 +19,11 @@ class Settings(BaseSettings):
     nowpayments_plan_id_monthly: str = "1796142641"
     nowpayments_plan_id_yearly: str = "1156416554"
 
+    # Gumroad
+    gumroad_product_url: str = "https://gumroad.com/l/xplrgv"
+    gumroad_variant_monthly: str = "Monthly"
+    gumroad_variant_yearly: str = "Yearly"
+
     # Plans
     free_alerts_per_day: int = 10
     pro_alerts_per_day: int = 500

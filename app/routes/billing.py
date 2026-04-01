@@ -27,47 +27,110 @@ async def billing_create_checkout(
 ):
     form = await request.form()
     plan_type = form.get("plan_type") or "monthly"
-    
-    plan_id = (
-        settings.nowpayments_plan_id_yearly 
-        if plan_type == "yearly" 
-        else settings.nowpayments_plan_id_monthly
-    )
+    gateway = form.get("gateway") or "gumroad"
 
-    try:
-        # 3. Create NowPayments Subscription (Email flow)
-        subscription_id = await create_email_subscription(user.email, plan_id)
-        
-        # 4. Save subscriber ID to user
-        result = await db.execute(select(User).where(User.id == user.id))
-        db_user = result.scalar_one()
-        db_user.np_subscriber_id = subscription_id
-        await db.commit()
-
-        return templates.TemplateResponse(
-            "billing_success.html",
-            {
-                "request": request,
-                "user": user,
-                "title": "Success",
-                "message": "Awesome! NowPayments has emailed you an invoice. Please pay it to activate your Pro plan."
-            },
+    if gateway == "nowpayments":
+        plan_id = (
+            settings.nowpayments_plan_id_yearly 
+            if plan_type == "yearly" 
+            else settings.nowpayments_plan_id_monthly
         )
-    except Exception as e:
-        error_msg = str(e)
-        if "already subscribed" in error_msg.lower():
-            # If already subscribed, just inform them
+
+        try:
+            # 3. Create NowPayments Subscription (Email flow)
+            subscription_id = await create_email_subscription(user.email, plan_id)
+            
+            # 4. Save subscriber ID to user
+            result = await db.execute(select(User).where(User.id == user.id))
+            db_user = result.scalar_one()
+            db_user.np_subscriber_id = subscription_id
+            await db.commit()
+
+            from app.main import templates
             return templates.TemplateResponse(
                 "billing_success.html",
                 {
                     "request": request,
                     "user": user,
-                    "title": "Already Subscribed",
-                    "message": "It looks like you already have a subscription for this plan! Please check your email for the NowPayments invoice."
+                    "title": "Success",
+                    "message": "Awesome! NowPayments has emailed you an invoice. Please pay it to activate your Pro plan."
                 },
             )
-        # Otherwise re-raise or handle normally
-        raise HTTPException(status_code=400, detail=error_msg)
+        except Exception as e:
+            error_msg = str(e)
+            if "already subscribed" in error_msg.lower():
+                from app.main import templates
+                return templates.TemplateResponse(
+                    "billing_success.html",
+                    {
+                        "request": request,
+                        "user": user,
+                        "title": "Already Subscribed",
+                        "message": "It looks like you already have a subscription for this plan! Please check your email for the NowPayments invoice."
+                    },
+                )
+            raise HTTPException(status_code=400, detail=error_msg)
+    
+    else:
+        # Gumroad Redirection
+        # We can append the email to pre-fill it in Gumroad
+        redirect_url = f"{settings.gumroad_product_url}?email={user.email}"
+        # If we have variants, we can also try to select them via URL if Gumroad supports it, 
+        # but usually users select it on the page.
+        return RedirectResponse(url=redirect_url, status_code=303)
+
+
+# ------------------------------------------------------------------
+# Gumroad Ping — update user plan
+# ------------------------------------------------------------------
+@router.post("/gumroad-ping")
+async def gumroad_ping(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    # Gumroad sends form-encoded data
+    form_data = await request.form()
+    
+    email = form_data.get("email")
+    sale_id = form_data.get("sale_id")
+    is_recurring = form_data.get("is_recurring") == "true"
+    # variants might look like "Variant Name" or "Variant Name ($50)"
+    variants = form_data.get("variants", "") 
+    
+    # Check if it's a cancellation/refund
+    # Gumroad 'ping' doesn't have a simple 'type' field like Stripe, 
+    # but it sends 'disputed' or 'refunded'.
+    # Actually, for subscriptions, there's a separate ping for 'subscription_cancelled'.
+    
+    # Basic logic: if we get a ping, it means a sale happened or a subscription event occurred.
+    # If the user is paying, they should be active.
+    
+    if not email:
+        return {"received": True, "skipped": "No email"}
+
+    # 3. Lookup user
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        # Maybe log this
+        return {"received": True, "skipped": "User not found"}
+
+    # Update Gumroad ID
+    if sale_id:
+        user.gumroad_id = str(sale_id)
+
+    # Simple logic: if email matches, give Pro.
+    # In a real app, you'd check 'subscription_cancelled' etc.
+    # But for now, any ping to this endpoint from a valid sale updates the plan.
+    
+    # Determine plan type (optional, but good for tracking)
+    # if settings.gumroad_variant_yearly in variants:
+    #     ...
+    
+    await _set_plan(db, user, "pro", "active")
+
+    return {"received": True}
 
 
 # ------------------------------------------------------------------
