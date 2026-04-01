@@ -9,6 +9,7 @@ from slowapi.errors import RateLimitExceeded
 from app.config import settings
 from app.logging_config import setup_logging
 from app.services.auth import get_current_user_optional
+from app.templates_config import templates
 
 
 # ------------------------------------------------------------------
@@ -82,7 +83,7 @@ app.include_router(admin_router)
 # ------------------------------------------------------------------
 # Page routes (landing, login, register)
 # ------------------------------------------------------------------
-templates = Jinja2Templates(directory="app/templates")
+# templates is imported from app.templates_config
 
 
 @app.get("/")

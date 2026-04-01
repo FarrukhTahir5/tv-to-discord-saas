@@ -6,7 +6,7 @@ from app.models.user import User
 from app.models.alert import AlertLog
 from app.services.auth import get_current_user
 from app.config import settings
-from app.main import templates
+from app.templates_config import templates
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 

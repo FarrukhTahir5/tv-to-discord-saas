@@ -46,7 +46,7 @@ async def billing_create_checkout(
             db_user.np_subscriber_id = subscription_id
             await db.commit()
 
-            from app.main import templates
+            from app.templates_config import templates
             return templates.TemplateResponse(
                 "billing_success.html",
                 {
@@ -59,7 +59,7 @@ async def billing_create_checkout(
         except Exception as e:
             error_msg = str(e)
             if "already subscribed" in error_msg.lower():
-                from app.main import templates
+                from app.templates_config import templates
                 return templates.TemplateResponse(
                     "billing_success.html",
                     {
