@@ -96,9 +96,56 @@ def parse_alert(
     )
 
 
-def _build_symbol(ticker: str, exchange: str) -> str:
+def detect_exchange(ticker: str) -> Optional[str]:
+    """
+    Heuristically detect the exchange for a given ticker.
+    Returns None if uncertain, letting TradingView resolve it.
+    """
+    ticker = ticker.upper()
+
+    # Common Crypto Patterns
+    if any(crypto in ticker for crypto in ["BTC", "ETH", "SOL", "BNB", "XRP", "USDT", "USDC"]):
+        # TradingView handles crypto well without prefix, often defaulting to BITSTAMP/BINANCE
+        return None
+
+    # Known Indices
+    indices = {
+        "SPX": "CBOE",
+        "NDX": "NASDAQ",
+        "DJI": "DJI",
+        "VIX": "CBOE",
+        "DXY": "TVC",
+    }
+    if ticker in indices:
+        return indices[ticker]
+
+    # Major ETFs (mostly AMEX/NYSE Arca)
+    etfs = {"SPY", "QQQ", "IWM", "DIA", "GLD", "SLV", "TLT"}
+    if ticker in etfs:
+        return "AMEX"
+
+    # Default to None to let TradingView's search engine find the best match
+    return None
+
+
+def _build_symbol(ticker: str, default_exchange: str) -> str:
     ticker = ticker.strip().upper()
-    exchange = exchange.strip().upper()
     if ":" in ticker:
         return ticker  # already fully qualified
-    return f"{exchange}:{ticker}"
+
+    # 1. Try heuristic detection
+    detected = detect_exchange(ticker)
+    if detected:
+        return f"{detected}:{ticker}"
+
+    # 2. If default_exchange is "AUTO" or empty, just return ticker
+    if not default_exchange or default_exchange.upper() == "AUTO":
+        return ticker
+
+    # 3. Fallback to user's default (e.g. "NASDAQ")
+    # Exception: if it looks like crypto but we're about to prepend NASDAQ, stop.
+    if any(c in ticker for c in ["USD", "USDT"]) and default_exchange.upper() == "NASDAQ":
+        return ticker
+
+    return f"{default_exchange}:{ticker}"
+

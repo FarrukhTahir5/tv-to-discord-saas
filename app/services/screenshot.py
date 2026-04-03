@@ -56,7 +56,7 @@ async def take_screenshot(symbol: str) -> bytes | None:
         context = None
         try:
             context = await _browser.new_context(
-                viewport={"width": 1400, "height": 800},
+                viewport={"width": 1920, "height": 1080},
                 device_scale_factor=2,  # Retina quality
             )
             page = await context.new_page()
@@ -65,23 +65,51 @@ async def take_screenshot(symbol: str) -> bytes | None:
             await page.goto(
                 url,
                 timeout=settings.playwright_timeout_ms,
-                wait_until="domcontentloaded",
+                wait_until="networkidle",  # Wait for more stability
             )
 
-            # Wait for chart to render
+            # Wait for chart to render and hide potential overlays
             try:
-                await page.wait_for_selector(
-                    ".chart-container", timeout=5000
+                # Target the central chart area
+                chart_selector = ".layout__area--center"
+                await page.wait_for_selector(chart_selector, timeout=12000)
+                
+                # Hide sidebars, toolbars, and cookie banners to let chart expand
+                await page.add_style_tag(content="""
+                    .layout__area--right, 
+                    .layout__area--left, 
+                    .layout__area--top,
+                    .layout__area--bottom,
+                    .overlap-manager, 
+                    .tv-dialog-container, 
+                    .toast-container,
+                    #cookies-settings-bubble { 
+                        display: none !important; 
+                    }
+                    .layout__area--center {
+                        inset: 0 !important;
+                        width: 100% !important;
+                        height: 100% !important;
+                    }
+                """)
+                
+                # Give it a moment to reflow
+                await page.wait_for_timeout(1000)
+                
+                chart_element = page.locator(chart_selector)
+                screenshot = await chart_element.screenshot(
+                    type="png",
+                    timeout=5000,
                 )
-            except Exception:
+                return screenshot
+            except Exception as e:
+                logger.warning("Selector-based screenshot failed for %s, falling back: %s", symbol, e)
+                # Fallback to full page if selector fails
                 await page.wait_for_timeout(settings.screenshot_wait_ms)
+                screenshot = await page.screenshot(type="png", full_page=False)
+                return screenshot
 
-            screenshot = await page.screenshot(
-                type="png",
-                full_page=False,
-                timeout=5000,
-            )
-            return screenshot
+
 
         except Exception as e:
             logger.error("Screenshot failed for %s: %s", symbol, e)
