@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 
-TICKER_REGEX = re.compile(r"\b([A-Z]{1,5}(?:[.\-][A-Z0-9]{1,4})?)\b")
+TICKER_REGEX = re.compile(r"\b([A-Z]{1,12}(?:[.\-][A-Z0-9]{1,4})?)\b")
 
 STOP_WORDS = {
     "THE", "AND", "FOR", "WITH", "THIS", "FROM", "THAT", "WILL",
@@ -15,6 +15,7 @@ STOP_WORDS = {
     "OFF", "SET", "RUN", "GOT", "GET", "PUT", "HIT", "NEW",
     "UP", "AT", "TO", "ON", "IN", "OR", "IF", "SO", "DO",
     "BY", "NO", "GO", "IT", "IS", "BE", "AS", "AN", "OF",
+    "VALUE", "CROSSING", "CROSSES", "ENTER", "EXIT",
 }
 
 
@@ -35,7 +36,7 @@ def parse_alert(
 
     # Layer 1: Explicit EXCHANGE:TICKER format
     explicit_match = re.search(
-        r"\b([A-Z_]+:[A-Z0-9]{1,10})\b", raw_text.upper()
+        r"\b([A-Z_]+:[A-Z0-9]{1,12})\b", raw_text.upper()
     )
     if explicit_match:
         symbol = explicit_match.group(1)
@@ -53,7 +54,7 @@ def parse_alert(
         parts = raw_text.split(",", 1)
         candidate = parts[0].strip().upper()
         candidate = re.sub(r"[^A-Z0-9.\-]", "", candidate)
-        if 1 <= len(candidate) <= 10:
+        if 1 <= len(candidate) <= 12:
             ticker = candidate
             message = parts[1].strip()
             symbol = _build_symbol(ticker, default_exchange)
@@ -64,9 +65,9 @@ def parse_alert(
                 source="comma",
             )
 
-    # Layer 3: Regex find all-caps word 2-6 chars
+    # Layer 3: Regex find all-caps word 2-12 chars
     upper_text = raw_text.upper()
-    matches = re.findall(r"\b([A-Z]{2,6})\b", upper_text)
+    matches = re.findall(r"\b([A-Z]{2,12})\b", upper_text)
     candidates = [m for m in matches if m not in STOP_WORDS]
     if candidates:
         ticker = candidates[0]
@@ -77,6 +78,7 @@ def parse_alert(
             message=raw_text,
             source="regex",
         )
+
 
     # Layer 4: Fallback to user's default_symbol
     if default_symbol:
