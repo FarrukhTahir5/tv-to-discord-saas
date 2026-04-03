@@ -9,9 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.db import get_db
-from app.models.user import User
-from app.models.alert import AlertLog
+from app.models import AlertLog, User, UserWebhook
 from app.services.auth import get_current_user
+
 from app.config import settings
 
 templates = Jinja2Templates(directory="app/templates")
@@ -38,8 +38,8 @@ async def dashboard(
     recent_alerts = result.scalars().all()
 
     # User webhooks
-    from app.models.webhook import UserWebhook
     wh_result = await db.execute(
+
         select(UserWebhook).where(UserWebhook.user_id == user.id).order_by(UserWebhook.created_at.desc())
     )
     user_webhooks = wh_result.scalars().all()
@@ -115,9 +115,9 @@ async def add_webhook(
     if not url or not DISCORD_WEBHOOK_PATTERN.match(url):
         raise HTTPException(400, "Invalid Discord webhook URL")
 
-    from app.models.webhook import UserWebhook
     new_wh = UserWebhook(user_id=user.id, name=name, url=url)
     db.add(new_wh)
+
     await db.commit()
 
     return RedirectResponse(url="/dashboard", status_code=303)
@@ -129,10 +129,10 @@ async def delete_webhook(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    from app.models.webhook import UserWebhook
     result = await db.execute(
         select(UserWebhook).where(UserWebhook.id == webhook_id, UserWebhook.user_id == user.id)
     )
+
     wh = result.scalar_one_or_none()
     if not wh:
         raise HTTPException(404, "Webhook not found")

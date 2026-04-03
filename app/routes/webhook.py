@@ -9,9 +9,9 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from app.db import get_db
-from app.models.user import User
-from app.models.alert import AlertLog
+from app.models import AlertLog, User
 from app.services.queue_svc import notify_worker
+
 
 router = APIRouter(tags=["webhook"])
 limiter = Limiter(key_func=get_remote_address)

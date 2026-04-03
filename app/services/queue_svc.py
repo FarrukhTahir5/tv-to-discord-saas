@@ -22,8 +22,8 @@ from app.services.screenshot import take_screenshot
 from app.services.discord_svc import post_to_discord
 from app.services.limits import check_and_increment_usage
 from app.db import AsyncSessionLocal
-from app.models.alert import AlertLog
-from app.models.user import User
+from app.models import AlertLog, User, UserWebhook
+
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -221,8 +221,8 @@ async def _process_alert(alert: AlertLog):
             await _update_alert(alert.id, status="screenshot_ok")
 
     # --- Discord post ---
-    from app.models.webhook import UserWebhook
     
+
     async with AsyncSessionLocal() as db:
         result = await db.execute(
             select(UserWebhook)

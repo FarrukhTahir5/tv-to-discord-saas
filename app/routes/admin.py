@@ -2,8 +2,8 @@ from fastapi import APIRouter, Request, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from app.db import get_db
-from app.models.user import User
-from app.models.alert import AlertLog
+from app.models import User, AlertLog
+
 from app.services.auth import get_current_user
 from app.config import settings
 from app.templates_config import templates
