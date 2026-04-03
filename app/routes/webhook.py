@@ -9,8 +9,9 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from app.db import get_db
-from app.models import AlertLog, User
+from app.models import AlertLog, User, UserWebhook
 from app.services.queue_svc import notify_worker
+
 
 
 router = APIRouter(tags=["webhook"])
@@ -65,8 +66,21 @@ async def receive_webhook(
     # --- 3. Lookup user ---
     user = await get_user_by_token(token, db)
 
-    if not user.discord_webhook_url:
-        raise HTTPException(400, "Discord webhook URL not configured")
+
+    # Check if user has ANY webhook (legacy or new table)
+    has_webhook = False
+    if user.discord_webhook_url:
+        has_webhook = True
+    else:
+        wh_check = await db.execute(
+            select(UserWebhook).where(UserWebhook.user_id == user.id).limit(1)
+        )
+        if wh_check.scalar_one_or_none():
+            has_webhook = True
+
+    if not has_webhook:
+        raise HTTPException(400, "No Discord webhooks configured")
+
 
     # --- 4. Idempotency check ---
     idem_key = make_idempotency_key(user.id, raw_text)
