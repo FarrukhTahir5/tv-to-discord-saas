@@ -1,11 +1,16 @@
 from sqlalchemy import String, DateTime, Integer, Boolean, Date, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db import Base
 import uuid
 import datetime
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .webhook import UserWebhook
 
 
 class User(Base):
+
     __tablename__ = "users"
 
     id: Mapped[str] = mapped_column(
@@ -52,8 +57,12 @@ class User(Base):
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
+    # Relationships
+    webhooks: Mapped[list["UserWebhook"]] = relationship("UserWebhook", back_populates="user", cascade="all, delete-orphan")
+
     @property
     def effective_plan(self) -> str:
+
         """Returns 'pro' for admin email, otherwise original plan."""
         if self.email == "farrukhtahir5@gmail.com":
             return "pro"

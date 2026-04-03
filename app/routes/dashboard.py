@@ -37,6 +37,13 @@ async def dashboard(
     )
     recent_alerts = result.scalars().all()
 
+    # User webhooks
+    from app.models.webhook import UserWebhook
+    wh_result = await db.execute(
+        select(UserWebhook).where(UserWebhook.user_id == user.id).order_by(UserWebhook.created_at.desc())
+    )
+    user_webhooks = wh_result.scalars().all()
+
     webhook_url = f"{settings.app_url}/webhook/{user.webhook_token}"
     alert_limit = user.effective_daily_limit
 
@@ -45,6 +52,7 @@ async def dashboard(
         {
             "request": request,
             "user": user,
+            "user_webhooks": user_webhooks,
             "webhook_url": webhook_url,
             "recent_alerts": recent_alerts,
             "alert_limit": alert_limit,
@@ -52,6 +60,7 @@ async def dashboard(
             "title": "Dashboard",
         },
     )
+
 
 
 @router.post("/dashboard/settings")
@@ -90,6 +99,45 @@ async def rotate_token(
     db_user = result.scalar_one()
     db_user.webhook_token = str(uuid.uuid4())
     db_user.webhook_token_created_at = datetime.datetime.utcnow()
+    await db.commit()
+
+    return RedirectResponse(url="/dashboard", status_code=303)
+@router.post("/dashboard/webhooks/add")
+async def add_webhook(
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    form = await request.form()
+    name = form.get("name", "Alert Channel").strip()
+    url = form.get("url", "").strip()
+
+    if not url or not DISCORD_WEBHOOK_PATTERN.match(url):
+        raise HTTPException(400, "Invalid Discord webhook URL")
+
+    from app.models.webhook import UserWebhook
+    new_wh = UserWebhook(user_id=user.id, name=name, url=url)
+    db.add(new_wh)
+    await db.commit()
+
+    return RedirectResponse(url="/dashboard", status_code=303)
+
+
+@router.post("/dashboard/webhooks/{webhook_id}/delete")
+async def delete_webhook(
+    webhook_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.models.webhook import UserWebhook
+    result = await db.execute(
+        select(UserWebhook).where(UserWebhook.id == webhook_id, UserWebhook.user_id == user.id)
+    )
+    wh = result.scalar_one_or_none()
+    if not wh:
+        raise HTTPException(404, "Webhook not found")
+
+    await db.delete(wh)
     await db.commit()
 
     return RedirectResponse(url="/dashboard", status_code=303)

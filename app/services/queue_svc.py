@@ -221,37 +221,57 @@ async def _process_alert(alert: AlertLog):
             await _update_alert(alert.id, status="screenshot_ok")
 
     # --- Discord post ---
-    discord_url = user.discord_webhook_url
-    if not discord_url:
-        await _update_alert(
-            alert.id, status="failed",
-            error_stage="discord", error_message="No Discord webhook configured",
+    from app.models.webhook import UserWebhook
+    
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(UserWebhook)
+            .where(UserWebhook.user_id == user.id, UserWebhook.is_active == True)
         )
-        return
+        webhooks = result.scalars().all()
 
-    result = await post_to_discord(
-        discord_url,
-        symbol=parsed.symbol or "Unknown",
-        message=parsed.message,
-        screenshot_bytes=screenshot,
-        app_name=settings.app_name,
-    )
+    if not webhooks:
+        # Fallback to legacy column if no new webhooks exist
+        if user.discord_webhook_url:
+            webhooks = [UserWebhook(url=user.discord_webhook_url, name="Legacy Channel")]
+        else:
+            await _update_alert(
+                alert.id, status="failed",
+                error_stage="discord", error_message="No Discord webhooks configured",
+            )
+            return
+
+    results = []
+    for wh in webhooks:
+        res = await post_to_discord(
+            wh.url,
+            symbol=parsed.symbol or "Unknown",
+            message=parsed.message,
+            screenshot_bytes=screenshot,
+            app_name=settings.app_name,
+        )
+        results.append(res)
+
+    success = any(r.success for r in results)
+    status_code = next((r.status_code for r in results if not r.success), 200)
+    error_msg = "; ".join([r.error for r in results if r.error]) if not success else None
 
     elapsed_ms = int((time.monotonic() - start_time) * 1000)
 
     await _update_alert(
         alert.id,
-        status="discord_ok" if result.success else "failed",
-        error_stage=None if result.success else "discord",
-        error_message=result.error,
-        discord_status_code=result.status_code,
+        status="discord_ok" if success else "failed",
+        error_stage=None if success else "discord",
+        error_message=error_msg,
+        discord_status_code=status_code,
         processing_time_ms=elapsed_ms,
     )
 
     logger.info(
-        "job.completed alert_id=%s symbol=%s ok=%s ms=%d",
-        alert.id, parsed.symbol, result.success, elapsed_ms,
+        "job.completed alert_id=%s symbol=%s ok=%s targets=%d ms=%d",
+        alert.id, parsed.symbol, success, len(webhooks), elapsed_ms,
     )
+
 
 
 async def _update_alert(alert_id: str, **kwargs):
