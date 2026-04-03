@@ -101,28 +101,52 @@ def detect_exchange(ticker: str) -> Optional[str]:
     Heuristically detect the exchange for a given ticker.
     Returns None if uncertain, letting TradingView resolve it.
     """
-    ticker = ticker.upper()
+    ticker = ticker.strip().upper()
 
-    # Common Crypto Patterns
-    if any(crypto in ticker for crypto in ["BTC", "ETH", "SOL", "BNB", "XRP", "USDT", "USDC"]):
-        # TradingView handles crypto well without prefix, often defaulting to BITSTAMP/BINANCE
+    # 1. Crypto Pairs (BTCUSD, ETHUSDT, etc.)
+    if any(suffix in ticker for suffix in ["USD", "USDT", "USDC", "EUR", "GBP", "JPY", "KRW"]):
+        # TradingView's default (e.g. BITSTAMP or BINANCE) is usually correct
         return None
 
-    # Known Indices
+    # 2. Major US Indices
     indices = {
         "SPX": "CBOE",
+        "SPX500": "FX_IDC",
         "NDX": "NASDAQ",
+        "NAS100": "FX_IDC",
         "DJI": "DJI",
+        "US30": "FX_IDC",
         "VIX": "CBOE",
         "DXY": "TVC",
+        "USDT.D": "CRYPTOCAP",
+        "BTC.D": "CRYPTOCAP",
     }
     if ticker in indices:
         return indices[ticker]
 
-    # Major ETFs (mostly AMEX/NYSE Arca)
-    etfs = {"SPY", "QQQ", "IWM", "DIA", "GLD", "SLV", "TLT"}
+    # 3. Global Indices
+    global_indices = {
+        "DAX": "XETR",
+        "DE30": "FX_IDC",
+        "FTSE": "INDEX",
+        "UK100": "FX_IDC",
+        "NIFTY": "NSE",
+        "BANKNIFTY": "NSE",
+        "SENSEX": "BSE",
+        "TSX": "TSX",
+        "ASX": "ASX",
+    }
+    if ticker in global_indices:
+        return global_indices[ticker]
+
+    # 4. Major US ETFs (mostly AMEX/NYSE Arca)
+    etfs = {"SPY", "QQQ", "IWM", "DIA", "GLD", "SLV", "TLT", "VXX", "UVXY", "ARKK"}
     if ticker in etfs:
         return "AMEX"
+
+    # 5. Forex Pairs (6 chars, e.g. EURUSD)
+    if len(ticker) == 6 and any(cur in ticker for cur in ["EUR", "USD", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD"]):
+        return "FX_IDC"
 
     # Default to None to let TradingView's search engine find the best match
     return None
@@ -133,19 +157,25 @@ def _build_symbol(ticker: str, default_exchange: str) -> str:
     if ":" in ticker:
         return ticker  # already fully qualified
 
-    # 1. Try heuristic detection
+    # 1. Try heuristic detection first
     detected = detect_exchange(ticker)
     if detected:
         return f"{detected}:{ticker}"
 
-    # 2. If default_exchange is "AUTO" or empty, just return ticker
+    # 2. High-confidence Crypto check (even if not in detect_exchange list)
+    # If it ends in USDT/USDC, it's 99% crypto. Don't prepend a stock exchange.
+    if ticker.endswith(("USDT", "USDC", "BUSD", "DAI")):
+        return ticker
+
+    # 3. Handle "AUTO" or empty default
     if not default_exchange or default_exchange.upper() == "AUTO":
         return ticker
 
-    # 3. Fallback to user's default (e.g. "NASDAQ")
-    # Exception: if it looks like crypto but we're about to prepend NASDAQ, stop.
-    if any(c in ticker for c in ["USD", "USDT"]) and default_exchange.upper() == "NASDAQ":
+    # 4. Final fallback to user's default (e.g. "NASDAQ")
+    # But skip if ticker looks like it might be crypto to avoid "NASDAQ:BTC"
+    if any(c in ticker for c in ["USD", "USDT"]) and default_exchange.upper() in ["NASDAQ", "NYSE", "AMEX"]:
         return ticker
 
     return f"{default_exchange}:{ticker}"
+
 
