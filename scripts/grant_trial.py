@@ -7,11 +7,11 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy import select
-from app.db import async_session
+from app.db import AsyncSessionLocal
 from app.models.user import User
 
 async def grant_trial(email: str, weeks: int = 1):
-    async with async_session() as session:
+    async with AsyncSessionLocal() as session:
         stmt = select(User).where(User.email == email)
         result = await session.execute(stmt)
         user = result.scalar_one_or_none()
