@@ -51,6 +51,9 @@ class User(Base):
     np_subscriber_id: Mapped[str | None] = mapped_column(String, nullable=True)
     gumroad_id: Mapped[str | None] = mapped_column(String, nullable=True)
     subscription_status: Mapped[str] = mapped_column(String, default="inactive")
+    trial_expires_at: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime, nullable=True
+    )
 
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime, default=func.now()
@@ -62,20 +65,19 @@ class User(Base):
 
     @property
     def effective_plan(self) -> str:
-
-        """Returns 'pro' for admin email, otherwise original plan."""
+        """Returns 'pro' for admin or if active trial exists."""
         if self.email == "farrukhtahir5@gmail.com":
+            return "pro"
+        if self.trial_expires_at and self.trial_expires_at > datetime.datetime.now():
             return "pro"
         return self.plan
 
     @property
     def effective_daily_limit(self) -> int:
-        """Returns pro limit for admin email, otherwise plan limit."""
+        """Returns pro limit if effective plan is pro, otherwise free limit."""
         from app.config import settings
-        if self.email == "farrukhtahir5@gmail.com":
-            return settings.pro_alerts_per_day
         return (
             settings.pro_alerts_per_day
-            if self.plan == "pro"
+            if self.effective_plan == "pro"
             else settings.free_alerts_per_day
         )

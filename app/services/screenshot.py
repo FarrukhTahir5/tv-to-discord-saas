@@ -76,16 +76,32 @@ async def take_screenshot(symbol: str) -> bytes | None:
                 
                 # Hide sidebars, toolbars, and cookie banners to let chart expand
                 await page.add_style_tag(content="""
-                    .layout__area--right, 
-                    .layout__area--left, 
+                    /* Hide surrounding UI components */
                     .layout__area--top,
+                    .layout__area--left,
+                    .layout__area--right,
                     .layout__area--bottom,
-                    .overlap-manager, 
-                    .tv-dialog-container, 
+                    .header-chart-panel,
+                    .footer-chart-panel,
+                    .tv-side-toolbar,
+                    #drawing-toolbar,
+                    .widgetbar-wrap,
+                    .chart-controls-bar,
+                    .tv-floating-toolbar,
+                    .anchor-3Y_mXp_m,
+                    div[id^="sp_message_container"],
+                    .cookie-banner,
+                    #cookies-settings-bubble,
+                    .overlap-manager,
+                    #overlap-manager-root,
+                    .tv-dialog-container,
+                    .tv-dialog,
                     .toast-container,
-                    #cookies-settings-bubble { 
+                    .closeButton-zLVm6B4t { 
                         display: none !important; 
                     }
+
+                    /* Expand the central chart to full viewport */
                     .layout__area--center {
                         inset: 0 !important;
                         width: 100% !important;
