@@ -1,6 +1,9 @@
 """
-NowPayments billing routes — subscription creation + IPN handler.
+LemonSqueezy billing routes — checkout redirect + webhook handler.
 """
+
+import json
+import structlog
 
 from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import RedirectResponse
@@ -11,174 +14,99 @@ from app.config import settings
 from app.db import get_db
 from app.models.user import User
 from app.services.auth import get_current_user
-from app.services.nowpayments_svc import create_email_subscription, verify_ipn_signature
+from app.services.lemonsqueezy_svc import create_checkout, verify_webhook_signature
 
+logger = structlog.get_logger()
 router = APIRouter(prefix="/billing", tags=["billing"])
 
 
 # ------------------------------------------------------------------
-# Create subscription → NowPayments sends email to user
+# Create checkout → redirect to LemonSqueezy hosted page
 # ------------------------------------------------------------------
 @router.post("/create-checkout")
 async def billing_create_checkout(
     request: Request,
-    db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     form = await request.form()
     plan_type = form.get("plan_type") or "monthly"
-    gateway = form.get("gateway") or "gumroad"
 
-    if gateway == "nowpayments":
-        plan_id = (
-            settings.nowpayments_plan_id_yearly 
-            if plan_type == "yearly" 
-            else settings.nowpayments_plan_id_monthly
+    variant_id = (
+        settings.lemonsqueezy_variant_id_yearly
+        if plan_type == "yearly"
+        else settings.lemonsqueezy_variant_id_monthly
+    )
+
+    try:
+        checkout_url = await create_checkout(
+            user_id=user.id,
+            user_email=user.email,
+            variant_id=variant_id,
         )
+        return RedirectResponse(url=checkout_url, status_code=303)
 
-        try:
-            # 3. Create NowPayments Subscription (Email flow)
-            subscription_id = await create_email_subscription(user.email, plan_id)
-            
-            # 4. Save subscriber ID to user
-            result = await db.execute(select(User).where(User.id == user.id))
-            db_user = result.scalar_one()
-            db_user.np_subscriber_id = subscription_id
-            await db.commit()
-
-            from app.templates_config import templates
-            return templates.TemplateResponse(
-                "billing_success.html",
-                {
-                    "request": request,
-                    "user": user,
-                    "title": "Success",
-                    "message": "Awesome! NowPayments has emailed you an invoice. Please pay it to activate your Pro plan."
-                },
-            )
-        except Exception as e:
-            error_msg = str(e)
-            if "already subscribed" in error_msg.lower():
-                from app.templates_config import templates
-                return templates.TemplateResponse(
-                    "billing_success.html",
-                    {
-                        "request": request,
-                        "user": user,
-                        "title": "Already Subscribed",
-                        "message": "It looks like you already have a subscription for this plan! Please check your email for the NowPayments invoice."
-                    },
-                )
-            raise HTTPException(status_code=400, detail=error_msg)
-    
-    else:
-        # Gumroad Redirection
-        # We can append the email to pre-fill it in Gumroad
-        redirect_url = f"{settings.gumroad_product_url}?email={user.email}"
-        # If we have variants, we can also try to select them via URL if Gumroad supports it, 
-        # but usually users select it on the page.
-        return RedirectResponse(url=redirect_url, status_code=303)
+    except Exception as e:
+        logger.error("lemonsqueezy_checkout_failed", error=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # ------------------------------------------------------------------
-# Gumroad Ping — update user plan
+# LemonSqueezy Webhook — verify signature, update user plan
 # ------------------------------------------------------------------
-@router.post("/gumroad-ping")
-async def gumroad_ping(
+@router.post("/lemonsqueezy-webhook")
+async def lemonsqueezy_webhook(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    # Gumroad sends form-encoded data
-    form_data = await request.form()
-    
-    email = form_data.get("email")
-    sale_id = form_data.get("sale_id")
-    is_recurring = form_data.get("is_recurring") == "true"
-    # variants might look like "Variant Name" or "Variant Name ($50)"
-    variants = form_data.get("variants", "") 
-    
-    # Check if it's a cancellation/refund
-    # Gumroad 'ping' doesn't have a simple 'type' field like Stripe, 
-    # but it sends 'disputed' or 'refunded'.
-    # Actually, for subscriptions, there's a separate ping for 'subscription_cancelled'.
-    
-    # Basic logic: if we get a ping, it means a sale happened or a subscription event occurred.
-    # If the user is paying, they should be active.
-    
-    if not email:
-        return {"received": True, "skipped": "No email"}
+    raw_body = await request.body()
+    signature = request.headers.get("x-signature", "")
 
-    # 3. Lookup user
-    result = await db.execute(select(User).where(User.email == email))
-    user = result.scalar_one_or_none()
-    
+    if not verify_webhook_signature(raw_body, signature):
+        raise HTTPException(400, "Invalid webhook signature")
+
+    payload = json.loads(raw_body)
+    meta = payload.get("meta", {})
+    event_name = meta.get("event_name", "")
+    custom_data = meta.get("custom_data", {})
+
+    data = payload.get("data", {})
+    attrs = data.get("attributes", {})
+
+    # Extract identifiers
+    user_email = attrs.get("user_email")
+    customer_id = str(attrs.get("customer_id", ""))
+    subscription_id = str(data.get("id", ""))
+    status = attrs.get("status", "")
+
+    # Try to find user by custom_data user_id first, then by email
+    user = None
+    user_id = custom_data.get("user_id")
+    if user_id:
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+
+    if not user and user_email:
+        result = await db.execute(select(User).where(User.email == user_email))
+        user = result.scalar_one_or_none()
+
     if not user:
-        # Maybe log this
+        logger.warn("lemonsqueezy_webhook_user_not_found", email=user_email, user_id=user_id)
         return {"received": True, "skipped": "User not found"}
 
-    # Update Gumroad ID
-    if sale_id:
-        user.gumroad_id = str(sale_id)
+    # Handle subscription events
+    if event_name in ("subscription_created", "subscription_updated", "subscription_resumed"):
+        if status in ("active", "on_trial", "paused"):
+            await _set_plan(db, user, "pro", "active", customer_id, subscription_id)
+            logger.info("user_upgraded_to_pro", user_id=user.id, event=event_name)
 
-    # Simple logic: if email matches, give Pro.
-    # In a real app, you'd check 'subscription_cancelled' etc.
-    # But for now, any ping to this endpoint from a valid sale updates the plan.
-    
-    # Determine plan type (optional, but good for tracking)
-    # if settings.gumroad_variant_yearly in variants:
-    #     ...
-    
-    await _set_plan(db, user, "pro", "active")
+    elif event_name in ("subscription_cancelled", "subscription_expired"):
+        await _set_plan(db, user, "free", "inactive", customer_id, subscription_id)
+        logger.info("user_downgraded_to_free", user_id=user.id, event=event_name)
 
-    return {"received": True}
-
-
-# ------------------------------------------------------------------
-# NowPayments IPN — verify signature, update user plan
-# ------------------------------------------------------------------
-@router.post("/nowpayments-ipn")
-async def nowpayments_ipn(
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-):
-    # 1. Verify signature
-    payload = await request.json()
-    sig = request.headers.get("x-nowpayments-sig", "")
-    
-    if not verify_ipn_signature(payload, sig):
-        raise HTTPException(400, "Invalid IPN signature")
-    
-    # NP IPN for subscriptions includes 'subscription_id' and 'payment_status'
-    # For email subs, we also get 'customer_email' or similar usually.
-    # Actually, NP IPN for recurring payments: https://nowpayments.io/documentation/recurring-payments-ipn
-    
-    status = payload.get("payment_status")
-    sub_id = payload.get("subscription_id")
-    email = payload.get("customer_email") # May vary depending on NP version, but we have sub_id
-
-    if not sub_id and not email:
-        return {"received": True, "skipped": "No identifiers found"}
-
-    # 3. Lookup user
-    query = select(User)
-    if sub_id:
-        query = query.where(User.np_subscriber_id == str(sub_id))
-    elif email:
-        query = query.where(User.email == email)
-    
-    result = await db.execute(query)
-    user = result.scalar_one_or_none()
-    
-    if not user:
-        return {"received": True, "skipped": "User not found"}
-
-    # 4. Update plan based on status
-    # finished | confirmed | sending: user paid
-    # failed | expired: user didn't pay
-    if status in ["finished", "confirmed", "sending"]:
-        await _set_plan(db, user, "pro", "active")
-    elif status in ["failed", "expired"]:
-        await _set_plan(db, user, "free", "inactive")
+    elif event_name == "subscription_payment_failed":
+        if status in ("past_due", "unpaid"):
+            await _set_plan(db, user, "free", "inactive", customer_id, subscription_id)
+            logger.info("user_payment_failed_downgraded", user_id=user.id)
 
     return {"received": True}
 
@@ -191,11 +119,15 @@ async def _set_plan(
     user: User,
     plan: str,
     status: str,
+    customer_id: str = "",
+    subscription_id: str = "",
 ):
     user.plan = plan
     user.subscription_status = status
-    # Daily limit is handled by property in User model now (effective_daily_limit)
-    # but we still want to keep the base column updated if possible.
+    if customer_id:
+        user.ls_customer_id = customer_id
+    if subscription_id:
+        user.ls_subscription_id = subscription_id
     user.daily_limit = (
         settings.pro_alerts_per_day if plan == "pro" else settings.free_alerts_per_day
     )

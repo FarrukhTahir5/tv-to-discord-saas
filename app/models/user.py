@@ -48,8 +48,8 @@ class User(Base):
 
     # Billing
     plan: Mapped[str] = mapped_column(String, default="free")
-    np_subscriber_id: Mapped[str | None] = mapped_column(String, nullable=True)
-    gumroad_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    ls_customer_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    ls_subscription_id: Mapped[str | None] = mapped_column(String, nullable=True)
     subscription_status: Mapped[str] = mapped_column(String, default="inactive")
     trial_expires_at: Mapped[datetime.datetime | None] = mapped_column(
         DateTime, nullable=True
