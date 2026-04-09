@@ -97,11 +97,11 @@ async def lemonsqueezy_webhook(
     if event_name in ("subscription_created", "subscription_updated", "subscription_resumed"):
         if status in ("active", "on_trial", "paused"):
             await _set_plan(db, user, "pro", "active", customer_id, subscription_id)
-            logger.info("user_upgraded_to_pro", user_id=user.id, event=event_name)
+            logger.info("user_upgraded_to_pro", user_id=user.id, ls_event=event_name)
 
     elif event_name in ("subscription_cancelled", "subscription_expired"):
         await _set_plan(db, user, "free", "inactive", customer_id, subscription_id)
-        logger.info("user_downgraded_to_free", user_id=user.id, event=event_name)
+        logger.info("user_downgraded_to_free", user_id=user.id, ls_event=event_name)
 
     elif event_name == "subscription_payment_failed":
         if status in ("past_due", "unpaid"):
