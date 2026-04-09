@@ -45,12 +45,12 @@ async def take_screenshot(symbol: str) -> bytes | None:
     """
     Returns PNG bytes or None on failure.
     Uses semaphore to enforce strict concurrency limit.
+    If the symbol has an exchange prefix and TradingView shows
+    "doesn't exist", retries with just the ticker (no prefix).
     """
     if not _browser or not _semaphore:
         logger.error("Browser not initialized")
         return None
-
-    url = f"https://www.tradingview.com/chart/?symbol={symbol}"
 
     async with _semaphore:
         context = None
@@ -61,19 +61,34 @@ async def take_screenshot(symbol: str) -> bytes | None:
             )
             page = await context.new_page()
 
+            url = f"https://www.tradingview.com/chart/?symbol={symbol}"
+
             # Navigate with timeout
             await page.goto(
                 url,
                 timeout=settings.playwright_timeout_ms,
-                wait_until="networkidle",  # Wait for more stability
+                wait_until="networkidle",
             )
+
+            # Check if TradingView shows "This symbol doesn't exist"
+            # If so, retry without the exchange prefix
+            page_text = await page.inner_text("body")
+            if "doesn't exist" in page_text.lower() and ":" in symbol:
+                ticker = symbol.split(":", 1)[1]
+                logger.info("Symbol %s not found, retrying with %s", symbol, ticker)
+                url = f"https://www.tradingview.com/chart/?symbol={ticker}"
+                await page.goto(
+                    url,
+                    timeout=settings.playwright_timeout_ms,
+                    wait_until="networkidle",
+                )
 
             # Wait for chart to render and hide potential overlays
             try:
                 # Target the central chart area
                 chart_selector = ".layout__area--center"
                 await page.wait_for_selector(chart_selector, timeout=12000)
-                
+
                 # Hide sidebars, toolbars, and cookie banners to let chart expand
                 await page.add_style_tag(content="""
                     /* Hide surrounding UI components */
@@ -97,8 +112,8 @@ async def take_screenshot(symbol: str) -> bytes | None:
                     .tv-dialog-container,
                     .tv-dialog,
                     .toast-container,
-                    .closeButton-zLVm6B4t { 
-                        display: none !important; 
+                    .closeButton-zLVm6B4t {
+                        display: none !important;
                     }
 
                     /* Expand the central chart to full viewport */
@@ -108,10 +123,10 @@ async def take_screenshot(symbol: str) -> bytes | None:
                         height: 100% !important;
                     }
                 """)
-                
+
                 # Give it a moment to reflow
                 await page.wait_for_timeout(1000)
-                
+
                 chart_element = page.locator(chart_selector)
                 screenshot = await chart_element.screenshot(
                     type="png",
