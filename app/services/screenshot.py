@@ -36,7 +36,7 @@ async def stop_browser():
         await _browser.close()
         _browser = None
     if _playwright:
-        await _playwright.__aexit__(None, None, None)
+        await _playwright.stop()
         _playwright = None
     logger.info("Playwright browser stopped")
 
@@ -85,47 +85,48 @@ async def take_screenshot(symbol: str) -> bytes | None:
 
             # Wait for chart to render and hide potential overlays
             try:
-                # Target the central chart area
-                chart_selector = ".layout__area--center"
+                # Target the chart container element directly
+                chart_selector = "[data-qa-id='chart-container']"
                 await page.wait_for_selector(chart_selector, timeout=12000)
 
-                # Hide sidebars, toolbars, and cookie banners to let chart expand
+                # Wait for chart canvas to be painted (not just empty/loading)
+                await page.wait_for_selector(
+                    "canvas[data-name='pane-canvas']", timeout=10000
+                )
+
+                # Brief pause for chart data to render on canvas
+                await page.wait_for_timeout(2000)
+
+                # Hide overlays (legend, buy/sell buttons, control bars)
+                # but keep the chart canvas and axes intact
                 await page.add_style_tag(content="""
-                    /* Hide surrounding UI components */
-                    .layout__area--top,
-                    .layout__area--left,
-                    .layout__area--right,
-                    .layout__area--bottom,
-                    .header-chart-panel,
-                    .footer-chart-panel,
-                    .tv-side-toolbar,
-                    #drawing-toolbar,
-                    .widgetbar-wrap,
-                    .chart-controls-bar,
+                    /* Legend with OHLC values */
+                    .legend-l31H9iuA,
+                    /* Buy/Sell buttons */
+                    .container-SXMXfs_Z,
+                    /* Pane control buttons */
+                    .paneControls-JQv8nO8e,
+                    /* Bottom control bar (zoom, scroll) */
+                    .control-bar-wrapper,
+                    /* Loading spinner */
+                    .tv-spinner,
+                    /* Floating toolbars */
                     .tv-floating-toolbar,
-                    .anchor-3Y_mXp_m,
-                    div[id^="sp_message_container"],
-                    .cookie-banner,
-                    #cookies-settings-bubble,
                     .overlap-manager,
                     #overlap-manager-root,
                     .tv-dialog-container,
                     .tv-dialog,
                     .toast-container,
-                    .closeButton-zLVm6B4t {
+                    /* Cookie banners */
+                    div[id^="sp_message_container"],
+                    .cookie-banner,
+                    #cookies-settings-bubble {
                         display: none !important;
-                    }
-
-                    /* Expand the central chart to full viewport */
-                    .layout__area--center {
-                        inset: 0 !important;
-                        width: 100% !important;
-                        height: 100% !important;
                     }
                 """)
 
-                # Give it a moment to reflow
-                await page.wait_for_timeout(1000)
+                # Brief reflow after hiding elements
+                await page.wait_for_timeout(500)
 
                 chart_element = page.locator(chart_selector)
                 screenshot = await chart_element.screenshot(

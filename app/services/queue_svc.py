@@ -245,7 +245,7 @@ async def _process_alert(alert: AlertLog):
     for wh in webhooks:
         res = await post_to_discord(
             wh.url,
-            symbol=parsed.symbol or "Unknown",
+            symbol=parsed.ticker or parsed.symbol or "Unknown",
             message=parsed.message,
             screenshot_bytes=screenshot,
             app_name=settings.app_name,

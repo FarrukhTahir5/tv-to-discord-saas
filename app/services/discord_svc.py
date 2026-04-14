@@ -45,23 +45,27 @@ async def _do_post(
     screenshot_bytes: bytes | None,
     app_name: str,
 ) -> DiscordResult:
-    # Build embed
+    # Message text appears ABOVE the embed as regular content
+    content = message.strip()
+    if not screenshot_bytes:
+        content += "\n⚠️ *(Chart preview unavailable)*"
+
+    # Embed is just the chart image + footer
     embed = {
         "title": symbol or "Alert",
-        "description": message,
         "color": 0x5865F2,  # Discord blurple
         "footer": {"text": f"Sent via {app_name}"},
     }
 
     if screenshot_bytes:
         embed["image"] = {"url": "attachment://chart.png"}
-    else:
-        embed["description"] += "\n\n⚠️ *(Chart preview unavailable)*"
+
+    payload = {"content": content or None, "embeds": [embed]}
 
     form = aiohttp.FormData()
     form.add_field(
         "payload_json",
-        json.dumps({"embeds": [embed]}),
+        json.dumps(payload),
         content_type="application/json",
     )
 
@@ -90,7 +94,7 @@ async def _do_post(
         form2 = aiohttp.FormData()
         form2.add_field(
             "payload_json",
-            json.dumps({"embeds": [embed]}),
+            json.dumps(payload),
             content_type="application/json",
         )
         if screenshot_bytes:
