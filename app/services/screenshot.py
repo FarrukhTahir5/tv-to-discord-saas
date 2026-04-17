@@ -83,65 +83,117 @@ async def take_screenshot(symbol: str) -> bytes | None:
                     wait_until="networkidle",
                 )
 
-            # Wait for chart to render and hide potential overlays
             try:
-                # Target the chart container element directly
                 chart_selector = "[data-qa-id='chart-container']"
                 await page.wait_for_selector(chart_selector, timeout=12000)
-
-                # Wait for chart canvas to be painted (not just empty/loading)
                 await page.wait_for_selector(
                     "canvas[data-name='pane-canvas']", timeout=10000
                 )
-
-                # Brief pause for chart data to render on canvas
                 await page.wait_for_timeout(2000)
 
-                # Hide overlays (legend, buy/sell buttons, control bars)
-                # but keep the chart canvas and axes intact
+                # Step 1: Click 1D time range via JS
+                try:
+                    result = await page.evaluate("""() => {
+                        const btn = document.querySelector(
+                            'button[data-name="date-range-tab-1D"]'
+                        );
+                        if (btn) { btn.click(); return 'clicked'; }
+                        return 'not found';
+                    }""")
+                    logger.info("screenshot %s: 1D range button => %s", symbol, result)
+                    await page.wait_for_timeout(2000)
+                except Exception as e:
+                    logger.warning("Could not set 1D range for %s: %s", symbol, e)
+
+                # Step 2: Force daily interval via JS dropdown
+                try:
+                    result = await page.evaluate("""() => {
+                        const btns = document.querySelectorAll(
+                            'button[class*="menuBtn"]'
+                        );
+                        let opened = false;
+                        for (const btn of btns) {
+                            if (btn.offsetParent !== null) {
+                                btn.click();
+                                opened = true;
+                                break;
+                            }
+                        }
+                        return opened ? 'dropdown opened' : 'no visible menuBtn';
+                    }""")
+                    logger.info("screenshot %s: interval dropdown => %s", symbol, result)
+                    await page.wait_for_timeout(500)
+                    result2 = await page.evaluate("""() => {
+                        const item = document.querySelector('[data-value="1D"]');
+                        if (item) { item.click(); return '1D clicked'; }
+                        return '1D not found';
+                    }""")
+                    logger.info("screenshot %s: set daily => %s", symbol, result2)
+                    await page.wait_for_timeout(3000)
+                except Exception as e:
+                    logger.warning("Could not set daily interval for %s: %s", symbol, e)
+
+                # Step 3: Zoom in 15 times via JS click on zoom button
+                try:
+                    zoom_result = await page.evaluate("""() => {
+                        // Make control bar visible
+                        const bars = document.querySelectorAll(
+                            '[class*="control-bar"]'
+                        );
+                        for (const bar of bars) {
+                            if (bar.classList.contains(
+                                'control-bar--hidden'
+                            )) {
+                                bar.classList.remove(
+                                    'control-bar--hidden'
+                                );
+                            }
+                            bar.style.display = '';
+                            bar.style.visibility = 'visible';
+                            bar.style.opacity = '1';
+                        }
+                        // Click zoom-in 15 times
+                        const zoomBtn = document.querySelector(
+                            '[class*="control-bar__btn--zoom-in"]'
+                        );
+                        if (!zoomBtn) return 'zoom button not found';
+                        for (let i = 0; i < 15; i++) {
+                            zoomBtn.dispatchEvent(
+                                new MouseEvent('click', {
+                                    bubbles: true,
+                                    cancelable: true,
+                                })
+                            );
+                        }
+                        return 'clicked 15 times';
+                    }""")
+                    logger.info("screenshot %s: zoom => %s", symbol, zoom_result)
+                    await page.wait_for_timeout(3000)
+                except Exception as e:
+                    logger.warning("Could not zoom for %s: %s", symbol, e)
+
+                # Step 4: Hide overlays
                 await page.add_style_tag(content="""
-                    /* Legend with OHLC values */
-                    .legend-l31H9iuA,
-                    /* Buy/Sell buttons */
-                    .container-SXMXfs_Z,
-                    /* Pane control buttons */
-                    .paneControls-JQv8nO8e,
-                    /* Bottom control bar (zoom, scroll) */
-                    .control-bar-wrapper,
-                    /* Loading spinner */
-                    .tv-spinner,
-                    /* Floating toolbars */
-                    .tv-floating-toolbar,
-                    .overlap-manager,
-                    #overlap-manager-root,
-                    .tv-dialog-container,
-                    .tv-dialog,
-                    .toast-container,
-                    /* Cookie banners */
-                    div[id^="sp_message_container"],
-                    .cookie-banner,
-                    #cookies-settings-bubble {
+                    .legend-l31H9iuA, .container-SXMXfs_Z, .paneControls-JQv8nO8e,
+                    .control-bar-wrapper, .tv-spinner, .tv-floating-toolbar,
+                    .overlap-manager, #overlap-manager-root, .tv-dialog-container,
+                    .tv-dialog, .toast-container, div[id^="sp_message_container"],
+                    .cookie-banner, #cookies-settings-bubble {
                         display: none !important;
                     }
                 """)
-
-                # Brief reflow after hiding elements
                 await page.wait_for_timeout(500)
 
                 chart_element = page.locator(chart_selector)
                 screenshot = await chart_element.screenshot(
-                    type="png",
-                    timeout=5000,
+                    type="png", timeout=5000,
                 )
                 return screenshot
             except Exception as e:
                 logger.warning("Selector-based screenshot failed for %s, falling back: %s", symbol, e)
-                # Fallback to full page if selector fails
                 await page.wait_for_timeout(settings.screenshot_wait_ms)
                 screenshot = await page.screenshot(type="png", full_page=False)
                 return screenshot
-
-
 
         except Exception as e:
             logger.error("Screenshot failed for %s: %s", symbol, e)
@@ -149,4 +201,4 @@ async def take_screenshot(symbol: str) -> bytes | None:
 
         finally:
             if context:
-                await context.close()  # ALWAYS close to prevent memory leaks
+                await context.close()
