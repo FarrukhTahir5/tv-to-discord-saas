@@ -157,7 +157,7 @@ async def take_screenshot(symbol: str) -> bytes | None:
                             '[class*="control-bar__btn--zoom-in"]'
                         );
                         if (!zoomBtn) return 'zoom button not found';
-                        for (let i = 0; i < 15; i++) {
+                        for (let i = 0; i < 10; i++) {
                             zoomBtn.dispatchEvent(
                                 new MouseEvent('click', {
                                     bubbles: true,
@@ -165,7 +165,7 @@ async def take_screenshot(symbol: str) -> bytes | None:
                                 })
                             );
                         }
-                        return 'clicked 15 times';
+                        return 'clicked 10 times';
                     }""")
                     logger.info("screenshot %s: zoom => %s", symbol, zoom_result)
                     await page.wait_for_timeout(3000)
