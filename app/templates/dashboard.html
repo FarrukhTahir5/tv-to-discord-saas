@@ -235,7 +235,7 @@
                     <td class="py-2.5 px-3 text-gray-500 text-xs">{{ alert.created_at.strftime('%H:%M:%S') if
                         alert.created_at else '—' }}</td>
                     <td class="py-2.5 px-3 text-right text-gray-500 text-xs font-mono">
-                        {{ (alert.processing_time_ms / 1000) | round(1) }}s
+                        {{ ((alert.processing_time_ms or 0) / 1000) | round(1) }}s
                         {%- if alert.processing_time_ms -%}
                         {%- endif -%}
                     </td>
