@@ -170,6 +170,11 @@ async def health_queue():
 # ------------------------------------------------------------------
 # Custom error pages
 # ------------------------------------------------------------------
+@app.exception_handler(401)
+async def auth_exception_handler(request: Request, exc):
+    return RedirectResponse(url="/login")
+
+
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc):
     return templates.TemplateResponse(
