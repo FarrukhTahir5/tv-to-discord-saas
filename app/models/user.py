@@ -33,7 +33,7 @@ class User(Base):
     )
 
     # Alert defaults
-    default_exchange: Mapped[str] = mapped_column(String, default="NASDAQ")
+    default_exchange: Mapped[str] = mapped_column(String, default="AUTO")
     default_symbol: Mapped[str | None] = mapped_column(
         String, nullable=True
     )

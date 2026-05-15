@@ -72,16 +72,21 @@ async def take_screenshot(symbol: str) -> bytes | None:
 
             # Check if TradingView shows "This symbol doesn't exist"
             # If so, retry without the exchange prefix
+            # Also wait a bit to ensure it's not just a slow load
+            await page.wait_for_timeout(2000)
             page_text = await page.inner_text("body")
-            if "doesn't exist" in page_text.lower() and ":" in symbol:
-                ticker = symbol.split(":", 1)[1]
-                logger.info("Symbol %s not found, retrying with %s", symbol, ticker)
-                url = f"https://www.tradingview.com/chart/?symbol={ticker}"
-                await page.goto(
-                    url,
-                    timeout=settings.playwright_timeout_ms,
-                    wait_until="networkidle",
-                )
+            if "doesn't exist" in page_text.lower():
+                if ":" in symbol:
+                    ticker = symbol.split(":", 1)[1]
+                    logger.info("Symbol %s not found, retrying with %s", symbol, ticker)
+                    url = f"https://www.tradingview.com/chart/?symbol={ticker}"
+                    await page.goto(
+                        url,
+                        timeout=settings.playwright_timeout_ms,
+                        wait_until="networkidle",
+                    )
+                else:
+                    logger.warning("Symbol %s not found even without prefix", symbol)
 
             try:
                 chart_selector = "[data-qa-id='chart-container']"
@@ -91,84 +96,40 @@ async def take_screenshot(symbol: str) -> bytes | None:
                 )
                 await page.wait_for_timeout(2000)
 
-                # Step 1: Click 1D time range via JS
+                # Step 1: Force daily interval via JS dropdown
                 try:
-                    result = await page.evaluate("""() => {
-                        const btn = document.querySelector(
-                            'button[data-name="date-range-tab-1D"]'
-                        );
-                        if (btn) { btn.click(); return 'clicked'; }
-                        return 'not found';
-                    }""")
-                    logger.info("screenshot %s: 1D range button => %s", symbol, result)
-                    await page.wait_for_timeout(2000)
-                except Exception as e:
-                    logger.warning("Could not set 1D range for %s: %s", symbol, e)
-
-                # Step 2: Force daily interval via JS dropdown
-                try:
-                    result = await page.evaluate("""() => {
-                        const btns = document.querySelectorAll(
-                            'button[class*="menuBtn"]'
-                        );
-                        let opened = false;
+                    # Just ensure we are on Daily if possible, but don't force weird ranges
+                    await page.evaluate("""() => {
+                        const btns = document.querySelectorAll('button[class*="menuBtn"]');
                         for (const btn of btns) {
+                            if (btn.innerText.includes('D') || btn.innerText.includes('1D')) return; // Already on Daily
                             if (btn.offsetParent !== null) {
                                 btn.click();
-                                opened = true;
                                 break;
                             }
                         }
-                        return opened ? 'dropdown opened' : 'no visible menuBtn';
+                        setTimeout(() => {
+                            const item = document.querySelector('[data-value="1D"]');
+                            if (item) item.click();
+                        }, 500);
                     }""")
-                    logger.info("screenshot %s: interval dropdown => %s", symbol, result)
-                    await page.wait_for_timeout(500)
-                    result2 = await page.evaluate("""() => {
-                        const item = document.querySelector('[data-value="1D"]');
-                        if (item) { item.click(); return '1D clicked'; }
-                        return '1D not found';
-                    }""")
-                    logger.info("screenshot %s: set daily => %s", symbol, result2)
-                    await page.wait_for_timeout(3000)
+                    await page.wait_for_timeout(2000)
                 except Exception as e:
-                    logger.warning("Could not set daily interval for %s: %s", symbol, e)
+                    logger.warning("Could not set interval for %s: %s", symbol, e)
 
-                # Step 3: Zoom in 15 times via JS click on zoom button
+                # Step 2: Sensible Zoom (2-3 clicks max)
                 try:
                     zoom_result = await page.evaluate("""() => {
-                        // Make control bar visible
-                        const bars = document.querySelectorAll(
-                            '[class*="control-bar"]'
-                        );
-                        for (const bar of bars) {
-                            if (bar.classList.contains(
-                                'control-bar--hidden'
-                            )) {
-                                bar.classList.remove(
-                                    'control-bar--hidden'
-                                );
-                            }
-                            bar.style.display = '';
-                            bar.style.visibility = 'visible';
-                            bar.style.opacity = '1';
-                        }
-                        // Click zoom-in 15 times
-                        const zoomBtn = document.querySelector(
-                            '[class*="control-bar__btn--zoom-in"]'
-                        );
+                        // Click zoom-in 3 times for a clear view without being "too big"
+                        const zoomBtn = document.querySelector('[class*="control-bar__btn--zoom-in"]');
                         if (!zoomBtn) return 'zoom button not found';
-                        for (let i = 0; i < 10; i++) {
-                            zoomBtn.dispatchEvent(
-                                new MouseEvent('click', {
-                                    bubbles: true,
-                                    cancelable: true,
-                                })
-                            );
+                        for (let i = 0; i < 3; i++) {
+                            zoomBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
                         }
-                        return 'clicked 10 times';
+                        return 'clicked 3 times';
                     }""")
                     logger.info("screenshot %s: zoom => %s", symbol, zoom_result)
-                    await page.wait_for_timeout(3000)
+                    await page.wait_for_timeout(2000)
                 except Exception as e:
                     logger.warning("Could not zoom for %s: %s", symbol, e)
 

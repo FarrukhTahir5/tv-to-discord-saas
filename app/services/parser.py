@@ -29,7 +29,7 @@ class ParsedAlert:
 
 def parse_alert(
     raw_text: str,
-    default_exchange: str = "NASDAQ",
+    default_exchange: str = "AUTO",
     default_symbol: Optional[str] = None,
 ) -> ParsedAlert:
     raw_text = raw_text.strip()
