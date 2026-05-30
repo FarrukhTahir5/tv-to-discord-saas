@@ -274,8 +274,13 @@
         <li class="flex gap-3">
             <span
                 class="flex-shrink-0 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold">4</span>
-            <span>Set the alert message to include the ticker, e.g.: <code
-                    class="bg-gray-800 px-2 py-0.5 rounded text-blue-400">AAPL, breakout above 200</code></span>
+            <div class="flex-1">
+                <span class="block mb-2">Set the alert message to include the exact ticker. We strongly recommend using the exact <strong>EXCHANGE:TICKER</strong> format or adding a <strong>comma</strong> after the ticker:</span>
+                <ul class="list-disc pl-5 space-y-1 text-gray-400 mb-1">
+                    <li><code class="bg-gray-800 px-2 py-0.5 rounded text-blue-400">NASDAQ:AAPL</code> (Best)</li>
+                    <li><code class="bg-gray-800 px-2 py-0.5 rounded text-blue-400">AAPL, breakout above 200</code> (Good)</li>
+                </ul>
+            </div>
         </li>
         <li class="flex gap-3">
             <span
