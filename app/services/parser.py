@@ -25,14 +25,101 @@ class ParsedAlert:
     symbol: Optional[str]   # Full symbol e.g. "NASDAQ:CHEF"
     message: str             # Remaining text
     source: str              # How ticker was found: "explicit|comma|regex|default|none"
+    interval: Optional[str] = None  # TradingView interval e.g. "15", "240", "D"
+
+
+# Explicit tag anywhere in the alert: "tf=15", "TF: 4h", "interval=1D", "timeframe=240"
+INTERVAL_TAG_REGEX = re.compile(
+    r"\b(?:tf|interval|timeframe)\s*[:=]\s*(\d{0,4}[smhHdDwWM]?)(?=\s|,|$)",
+    re.IGNORECASE,
+)
+
+# Intervals accepted from the leading token of "TICKER, 1D Crossing ..." messages
+# (TradingView's default alert format). Bare numbers are limited to common
+# minute values so prices like "900" aren't mistaken for a timeframe.
+COMMON_MINUTES = {"1", "2", "3", "5", "10", "15", "30", "45", "60", "120", "180", "240"}
+
+
+def normalize_interval(token: str, strict: bool = False) -> Optional[str]:
+    """
+    Convert a timeframe token to TradingView's URL interval format.
+    "15" / "15m" -> "15", "1h" -> "60", "4H" -> "240", "1D"/"D" -> "D",
+    "1W" -> "W", "1M" -> "M" (uppercase M = month), "30s" -> "30S".
+    Returns None if the token isn't a recognizable timeframe.
+    """
+    token = token.strip()
+    m = re.fullmatch(r"(\d{0,4})([smhHdDwWM]?)", token)
+    if not m or not token:
+        return None
+    num, unit = m.group(1), m.group(2)
+    n = int(num) if num else 1
+    if n <= 0:
+        return None
+
+    if unit == "":
+        if not num or n > 1440:
+            return None
+        if strict and num not in COMMON_MINUTES:
+            return None
+        return str(n)
+    if unit == "m":
+        return str(n) if n <= 1440 else None
+    if unit in ("h", "H"):
+        return str(n * 60) if n <= 24 else None
+    if unit == "s":
+        return f"{n}S"
+    if unit in ("d", "D"):
+        return "D" if n == 1 else f"{n}D"
+    if unit in ("w", "W"):
+        return "W" if n == 1 else f"{n}W"
+    if unit == "M":
+        return "M" if n == 1 else f"{n}M"
+    return None
+
+
+def extract_interval(raw_text: str) -> tuple[Optional[str], str]:
+    """
+    Find an explicit timeframe tag (tf=15, interval=4h) in the alert.
+    Returns (interval, text with the tag removed).
+    """
+    match = INTERVAL_TAG_REGEX.search(raw_text)
+    if not match:
+        return None, raw_text
+    interval = normalize_interval(match.group(1))
+    if not interval:
+        return None, raw_text
+    cleaned = (raw_text[:match.start()] + raw_text[match.end():]).strip()
+    cleaned = re.sub(r"\s{2,}", " ", cleaned).strip(" ,|-")
+    return interval, cleaned or raw_text
 
 
 def parse_alert(
     raw_text: str,
     default_exchange: str = "AUTO",
     default_symbol: Optional[str] = None,
+    default_interval: Optional[str] = None,
 ) -> ParsedAlert:
     raw_text = raw_text.strip()
+    tag_interval, raw_text = extract_interval(raw_text)
+    parsed = _parse_symbol(raw_text, default_exchange, default_symbol)
+
+    if tag_interval:
+        parsed.interval = tag_interval
+    elif parsed.source == "comma":
+        # "CHEF, 1D Crossing Horizontal Ray" -> leading token of the message
+        first = parsed.message.split(None, 1)[0] if parsed.message else ""
+        parsed.interval = normalize_interval(first, strict=True)
+
+    if not parsed.interval and default_interval:
+        parsed.interval = normalize_interval(default_interval)
+    return parsed
+
+
+def _parse_symbol(
+    raw_text: str,
+    default_exchange: str,
+    default_symbol: Optional[str],
+) -> ParsedAlert:
 
     # Layer 1: Explicit EXCHANGE:TICKER format
     explicit_match = re.search(

@@ -20,6 +20,15 @@ router = APIRouter(tags=["dashboard"])
 DISCORD_WEBHOOK_PATTERN = re.compile(
     r"^https://discord\.com/api/webhooks/\d{17,20}/[\w-]{60,70}$"
 )
+CHART_LAYOUT_PATTERN = re.compile(r"tradingview\.com/chart/([A-Za-z0-9]{6,12})(?:/|\?|$)")
+LAYOUT_ID_PATTERN = re.compile(r"^[A-Za-z0-9]{6,12}$")
+
+# TradingView interval value -> label shown in the settings dropdown
+INTERVAL_CHOICES = {
+    "1": "1 minute", "5": "5 minutes", "15": "15 minutes", "30": "30 minutes",
+    "60": "1 hour", "120": "2 hours", "240": "4 hours",
+    "D": "1 day", "W": "1 week", "M": "1 month",
+}
 
 
 @router.get("/dashboard")
@@ -57,6 +66,7 @@ async def dashboard(
             "recent_alerts": recent_alerts,
             "alert_limit": alert_limit,
             "app_name": settings.app_name,
+            "interval_choices": INTERVAL_CHOICES,
             "title": "Dashboard",
         },
     )
@@ -73,6 +83,22 @@ async def update_settings(
     discord_url = form.get("discord_webhook_url", "").strip()
     default_exchange = form.get("default_exchange", "NASDAQ").strip().upper()
     default_symbol = form.get("default_symbol", "").strip() or None
+    layout_input = form.get("chart_layout", "").strip()
+    default_interval = form.get("default_interval", "").strip() or None
+
+    # Accept a full layout URL (tradingview.com/chart/AbC123/) or the bare ID
+    chart_layout_id = None
+    if layout_input:
+        m = CHART_LAYOUT_PATTERN.search(layout_input)
+        if m:
+            chart_layout_id = m.group(1)
+        elif LAYOUT_ID_PATTERN.match(layout_input):
+            chart_layout_id = layout_input
+        else:
+            raise HTTPException(400, "Invalid TradingView layout URL")
+
+    if default_interval and default_interval not in INTERVAL_CHOICES:
+        raise HTTPException(400, "Invalid default timeframe")
 
     # Validate Discord URL
     if discord_url and not DISCORD_WEBHOOK_PATTERN.match(discord_url):
@@ -81,9 +107,12 @@ async def update_settings(
     # Update user via a fresh query
     result = await db.execute(select(User).where(User.id == user.id))
     db_user = result.scalar_one()
-    db_user.discord_webhook_url = discord_url
+    if "discord_webhook_url" in form:
+        db_user.discord_webhook_url = discord_url
     db_user.default_exchange = default_exchange
     db_user.default_symbol = default_symbol
+    db_user.chart_layout_id = chart_layout_id
+    db_user.default_interval = default_interval
     await db.commit()
 
     return RedirectResponse(url="/dashboard", status_code=303)

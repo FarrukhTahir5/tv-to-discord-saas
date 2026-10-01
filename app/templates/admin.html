@@ -2,148 +2,214 @@
 {% block title %}Admin Dashboard{% endblock %}
 {% block content %}
 
-<div class="mb-8 flex items-baseline justify-between">
+<div class="mb-6 flex items-baseline justify-between">
     <h1 class="text-3xl font-extrabold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
         Admin Dashboard
     </h1>
-    <span class="text-xs text-gray-500 uppercase tracking-widest font-semibold">Internal Monitoring Only</span>
+    <form method="POST" action="/admin/sync-subscriptions">
+        <button type="submit" class="px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl text-xs font-semibold transition"
+            title="Pull every subscription's real status from LemonSqueezy (fixes missed webhooks)">
+            Sync subscriptions from LemonSqueezy
+        </button>
+    </form>
 </div>
 
-<!-- Stats Cards -->
-<div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-    <div class="bg-gray-900/50 border border-gray-800 p-5 rounded-2xl">
-        <div class="text-xs font-semibold text-gray-500 uppercase mb-1">Total Users</div>
-        <div class="text-2xl font-bold text-white">{{ "{:,}".format(total_users) }}</div>
-    </div>
-    <div class="bg-blue-600/10 border border-blue-500/20 p-5 rounded-2xl">
-        <div class="text-xs font-semibold text-blue-400 uppercase mb-1">Pro Users</div>
-        <div class="text-2xl font-bold text-blue-400">{{ "{:,}".format(pro_users) }}</div>
-    </div>
-    <div class="bg-gray-900/50 border border-gray-800 p-5 rounded-2xl">
-        <div class="text-xs font-semibold text-gray-500 uppercase mb-1">Free Users</div>
-        <div class="text-2xl font-bold text-white">{{ "{:,}".format(free_users) }}</div>
-    </div>
-    <div class="bg-emerald-600/10 border border-emerald-500/20 p-5 rounded-2xl">
-        <div class="text-xs font-semibold text-emerald-400 uppercase mb-1">Alerts Today</div>
-        <div class="text-2xl font-bold text-emerald-400">{{ "{:,}".format(today_alerts) }}</div>
-    </div>
-    <div class="bg-gray-900/50 border border-gray-800 p-5 rounded-2xl">
-        <div class="text-xs font-semibold text-gray-500 uppercase mb-1">Total Alerts</div>
-        <div class="text-2xl font-bold text-white">{{ "{:,}".format(total_alerts) }}</div>
-    </div>
-</div>
+{% if msg %}
+<div class="mb-6 px-4 py-3 rounded-xl bg-blue-600/10 border border-blue-500/20 text-sm text-blue-300">{{ msg }}</div>
+{% endif %}
 
-<!-- Subscription Stats -->
-<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+<!-- Business -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
     <div class="bg-blue-600/10 border border-blue-500/20 p-5 rounded-2xl">
-        <div class="text-xs font-semibold text-blue-400 uppercase mb-1">Active Pro (Paid)</div>
-        <div class="text-2xl font-bold text-blue-400">{{ paid_pro }}</div>
+        <div class="text-xs font-semibold text-blue-400 uppercase mb-1">Paying</div>
+        <div class="text-2xl font-bold text-blue-400">{{ stats.paying }}</div>
+        <div class="text-xs text-gray-500 mt-1">{{ stats.cancelling }} cancelling</div>
     </div>
     <div class="bg-amber-600/10 border border-amber-500/20 p-5 rounded-2xl">
         <div class="text-xs font-semibold text-amber-400 uppercase mb-1">On Trial</div>
-        <div class="text-2xl font-bold text-amber-400">{{ on_trial }}</div>
-    </div>
-    <div class="bg-red-600/10 border border-red-500/20 p-5 rounded-2xl">
-        <div class="text-xs font-semibold text-red-400 uppercase mb-1">Expiring Soon (7d)</div>
-        <div class="text-2xl font-bold text-red-400">{{ expiring_soon }}</div>
+        <div class="text-2xl font-bold text-amber-400">{{ stats.on_trial }}</div>
     </div>
     <div class="bg-gray-900/50 border border-gray-800 p-5 rounded-2xl">
-        <div class="text-xs font-semibold text-gray-500 uppercase mb-1">Churned (Pro→Free)</div>
-        <div class="text-2xl font-bold text-gray-400">{{ churned }}</div>
+        <div class="text-xs font-semibold text-gray-500 uppercase mb-1">Users</div>
+        <div class="text-2xl font-bold text-white">{{ stats.total_users }}</div>
+        <div class="text-xs text-gray-500 mt-1">+{{ stats.signups_7d }} this week · +{{ stats.signups_30d }} in 30d</div>
+    </div>
+    <div class="bg-gray-900/50 border border-gray-800 p-5 rounded-2xl">
+        <div class="text-xs font-semibold text-gray-500 uppercase mb-1">Activated</div>
+        <div class="text-2xl font-bold text-white">
+            {{ stats.activated }}{% if stats.total_users %}<span class="text-sm text-gray-500 font-medium"> ({{ (100 * stats.activated / stats.total_users)|round|int }}%)</span>{% endif %}
+        </div>
+        <div class="text-xs text-gray-500 mt-1">sent at least one alert</div>
     </div>
 </div>
 
-<!-- User Table -->
-<div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
-    <div class="flex items-center justify-between mb-6">
-        <h2 class="text-lg font-bold">Latest Users</h2>
-        <input type="text" id="user-search" placeholder="Search by email..."
-               class="bg-gray-800 border border-gray-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-blue-500/50 w-64">
+<!-- Operations -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+    <div class="bg-emerald-600/10 border border-emerald-500/20 p-5 rounded-2xl">
+        <div class="text-xs font-semibold text-emerald-400 uppercase mb-1">Alerts (24h)</div>
+        <div class="text-2xl font-bold text-emerald-400">{{ stats.alerts_24h }}</div>
+        <div class="text-xs text-gray-500 mt-1">{{ stats.alerts_today }} today · {{ "{:,}".format(stats.total_alerts) }} all time</div>
+    </div>
+    <div class="{% if stats.failed_24h %}bg-red-600/10 border-red-500/20{% else %}bg-gray-900/50 border-gray-800{% endif %} border p-5 rounded-2xl">
+        <div class="text-xs font-semibold {% if stats.failed_24h %}text-red-400{% else %}text-gray-500{% endif %} uppercase mb-1">Failed (24h)</div>
+        <div class="text-2xl font-bold {% if stats.failed_24h %}text-red-400{% else %}text-white{% endif %}">{{ stats.failed_24h }}</div>
+        {% if stats.alerts_24h %}<div class="text-xs text-gray-500 mt-1">{{ (100 * stats.failed_24h / stats.alerts_24h)|round|int }}% failure rate</div>{% endif %}
+    </div>
+    <div class="{% if stats.queue_oldest_min and stats.queue_oldest_min > 5 %}bg-red-600/10 border-red-500/20{% else %}bg-gray-900/50 border-gray-800{% endif %} border p-5 rounded-2xl">
+        <div class="text-xs font-semibold text-gray-500 uppercase mb-1">Queue</div>
+        <div class="text-2xl font-bold text-white">{{ stats.queue_pending }}</div>
+        <div class="text-xs text-gray-500 mt-1">{% if stats.queue_oldest_min is not none %}oldest {{ stats.queue_oldest_min }} min{% else %}empty{% endif %}</div>
+    </div>
+    <div class="{% if stats.worker == 'ok' %}bg-emerald-600/10 border-emerald-500/20{% else %}bg-red-600/10 border-red-500/20{% endif %} border p-5 rounded-2xl">
+        <div class="text-xs font-semibold text-gray-500 uppercase mb-1">Screenshot Worker</div>
+        <div class="text-2xl font-bold {% if stats.worker == 'ok' %}text-emerald-400{% else %}text-red-400{% endif %}">
+            {{ 'Running' if stats.worker == 'ok' else 'Down' }}
+        </div>
+    </div>
+</div>
+
+<!-- Users -->
+<div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6 mb-8">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div class="flex flex-wrap gap-2">
+            {% for key, label in filters.items() %}
+            <a href="/admin/?filter={{ key }}{% if q %}&q={{ q|urlencode }}{% endif %}"
+               class="px-3 py-1.5 rounded-lg text-xs font-semibold border transition
+                      {% if active_filter == key %}bg-blue-600/20 border-blue-500/40 text-blue-300{% else %}border-gray-700 text-gray-400 hover:bg-gray-800{% endif %}">
+                {{ label }}{% if key == 'unused' %} ({{ stats.unused }}){% endif %}
+            </a>
+            {% endfor %}
+        </div>
+        <form method="GET" action="/admin/" class="flex gap-2">
+            <input type="hidden" name="filter" value="{{ active_filter }}">
+            <input type="text" name="q" value="{{ q }}" placeholder="Search by email..."
+                class="bg-gray-800 border border-gray-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-blue-500/50 w-64">
+        </form>
     </div>
 
+    <form method="POST" action="/admin/users/bulk-delete" id="bulk-form"
+          onsubmit="return confirm('Permanently delete ' + document.querySelectorAll('.user-check:checked').length + ' users and all their alerts? This cannot be undone.');">
+        <div class="flex items-center justify-between mb-3">
+            <span class="text-xs text-gray-500">{{ users|length }} users shown{% if active_filter == 'unused' %} · accounts with no alerts and no paid plan (likely test or abandoned signups){% endif %}</span>
+            <button type="submit" id="bulk-delete-btn" disabled
+                class="px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 text-red-300 rounded-lg text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed">
+                Delete selected (<span id="selected-count">0</span>)
+            </button>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left">
+                <thead>
+                    <tr class="text-gray-500 border-b border-gray-800">
+                        <th class="pb-3 px-2 w-8"><input type="checkbox" id="check-all" class="accent-blue-500"></th>
+                        <th class="pb-3 px-2 font-semibold">Email</th>
+                        <th class="pb-3 px-2 font-semibold">Plan</th>
+                        <th class="pb-3 px-2 font-semibold">Billing</th>
+                        <th class="pb-3 px-2 font-semibold">Alerts</th>
+                        <th class="pb-3 px-2 font-semibold">Last Alert</th>
+                        <th class="pb-3 px-2 font-semibold">Channels</th>
+                        <th class="pb-3 px-2 font-semibold">Joined</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                    {% set a = alert_stats.get(u.id) %}
+                    <tr class="border-b border-gray-800/50 hover:bg-white/5 transition-colors">
+                        <td class="py-3 px-2">
+                            {% if u.id in deletable %}
+                            <input type="checkbox" name="user_ids" value="{{ u.id }}" class="user-check accent-blue-500">
+                            {% endif %}
+                        </td>
+                        <td class="py-3 px-2 font-medium">
+                            <a href="/admin/users/{{ u.id }}" class="text-gray-200 hover:text-blue-400">{{ u.email }}</a>
+                            {% if u.is_admin %}<span class="ml-1 text-[10px] text-gray-500 uppercase">admin</span>{% endif %}
+                        </td>
+                        <td class="py-3 px-2">
+                            {% if u.effective_plan == 'pro' %}
+                            <span class="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-bold uppercase">PRO</span>
+                            {% if u.on_trial and u.id not in paying_ids %}<span class="text-[11px] text-amber-400 ml-1">trial → {{ u.trial_expires_at.strftime('%b %d') }}</span>{% endif %}
+                            {% else %}
+                            <span class="px-2 py-0.5 rounded-full bg-gray-700/30 text-gray-500 border border-gray-600/30 text-xs font-medium uppercase">FREE</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3 px-2 text-xs">
+                            {% if u.subscription_status == 'cancelled' and u.subscription_ends_at %}
+                                {% if u.subscription_ends_at > now %}
+                                <span class="text-amber-400">Cancelled · ends {{ u.subscription_ends_at.strftime('%Y-%m-%d') }}</span>
+                                {% else %}
+                                <span class="text-gray-500">Ended {{ u.subscription_ends_at.strftime('%Y-%m-%d') }}</span>
+                                {% endif %}
+                            {% elif u.subscription_status in ('active', 'on_trial') %}
+                            <span class="text-emerald-400">Active</span>
+                            {% elif u.subscription_status == 'past_due' %}
+                            <span class="text-red-400">Past due</span>
+                            {% elif u.subscription_status == 'manual' %}
+                            <span class="text-amber-400">Manual Pro</span>
+                            {% elif u.ls_subscription_id %}
+                            <span class="text-gray-500">Churned</span>
+                            {% else %}
+                            <span class="text-gray-600">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3 px-2 font-mono text-gray-400">{{ a.count if a else 0 }}</td>
+                        <td class="py-3 px-2 text-xs text-gray-500">{{ a.last.strftime('%Y-%m-%d') if a and a.last else '—' }}</td>
+                        <td class="py-3 px-2 font-mono text-gray-400">{{ webhook_counts.get(u.id, 0) + (1 if u.discord_webhook_url else 0) }}</td>
+                        <td class="py-3 px-2 text-xs text-gray-500">{{ u.created_at.strftime('%Y-%m-%d') if u.created_at else '—' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="8" class="py-6 text-center text-gray-500 text-sm">No users match.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </form>
+</div>
+
+<!-- Recent failures -->
+<div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
+    <h2 class="text-lg font-bold mb-4">Recent Failed Alerts</h2>
+    {% if recent_failures %}
     <div class="overflow-x-auto">
         <table class="w-full text-sm text-left">
             <thead>
                 <tr class="text-gray-500 border-b border-gray-800">
-                    <th class="pb-3 px-2 font-semibold">Email</th>
-                    <th class="pb-3 px-2 font-semibold">Plan</th>
-                    <th class="pb-3 px-2 font-semibold">Status</th>
-                    <th class="pb-3 px-2 font-semibold">Subscription</th>
-                    <th class="pb-3 px-2 font-semibold">Trial Ends</th>
-                    <th class="pb-3 px-2 font-semibold">Joined</th>
-                    <th class="pb-3 px-2 font-semibold">Used Today</th>
+                    <th class="pb-3 px-2 font-semibold">Time (UTC)</th>
+                    <th class="pb-3 px-2 font-semibold">User</th>
+                    <th class="pb-3 px-2 font-semibold">Symbol</th>
+                    <th class="pb-3 px-2 font-semibold">Stage</th>
+                    <th class="pb-3 px-2 font-semibold">Error</th>
                 </tr>
             </thead>
-            <tbody id="user-table-body">
-                {% for u in users %}
-                <tr class="border-b border-gray-800/50 hover:bg-white/5 transition-colors">
-                    <td class="py-4 px-2 font-medium text-gray-200">{{ u.email }}</td>
-                    <td class="py-4 px-2">
-                        {% if u.effective_plan == 'pro' %}
-                        <span class="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-bold uppercase">PRO</span>
-                        {% else %}
-                        <span class="px-2 py-0.5 rounded-full bg-gray-700/30 text-gray-500 border border-gray-600/30 text-xs font-medium uppercase">FREE</span>
-                        {% endif %}
-                    </td>
-                    <td class="py-4 px-2">
-                        {% if u.subscription_status == 'active' %}
-                        <span class="flex items-center gap-1.5 text-xs text-emerald-400">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>Active
-                        </span>
-                        {% elif u.subscription_status == 'inactive' %}
-                        <span class="flex items-center gap-1.5 text-xs text-gray-500">
-                            <span class="w-1.5 h-1.5 rounded-full bg-gray-500"></span>Inactive
-                        </span>
-                        {% else %}
-                        <span class="flex items-center gap-1.5 text-xs text-amber-400">
-                            <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>{{ u.subscription_status }}
-                        </span>
-                        {% endif %}
-                    </td>
-                    <td class="py-4 px-2 text-xs text-gray-500">
-                        {% if u.ls_subscription_id %}
-                        <span class="font-mono" title="Sub ID: {{ u.ls_subscription_id }}">
-                            {{ u.ls_subscription_id[:12] }}...
-                        </span>
-                        {% elif u.plan == 'pro' %}
-                        <span class="text-amber-400">manual/trial</span>
-                        {% else %}
-                        <span class="text-gray-600">—</span>
-                        {% endif %}
-                    </td>
-                    <td class="py-4 px-2 text-xs">
-                        {% if u.trial_expires_at %}
-                            {% if u.trial_expires_at < now %}
-                            <span class="text-red-400">{{ u.trial_expires_at.strftime('%Y-%m-%d') }} (expired)</span>
-                            {% elif (u.trial_expires_at - now).days <= 3 %}
-                            <span class="text-red-400 font-semibold">{{ u.trial_expires_at.strftime('%Y-%m-%d') }} ({{ (u.trial_expires_at - now).days }}d left)</span>
-                            {% elif (u.trial_expires_at - now).days <= 7 %}
-                            <span class="text-amber-400">{{ u.trial_expires_at.strftime('%Y-%m-%d') }} ({{ (u.trial_expires_at - now).days }}d left)</span>
-                            {% else %}
-                            <span class="text-gray-400">{{ u.trial_expires_at.strftime('%Y-%m-%d') }}</span>
-                            {% endif %}
-                        {% else %}
-                        <span class="text-gray-600">—</span>
-                        {% endif %}
-                    </td>
-                    <td class="py-4 px-2 text-gray-500">{{ u.created_at.strftime('%Y-%m-%d') }}</td>
-                    <td class="py-4 px-2 text-gray-400 font-mono">{{ u.alerts_used_today }}</td>
+            <tbody>
+                {% for alert, email in recent_failures %}
+                <tr class="border-b border-gray-800/50">
+                    <td class="py-3 px-2 text-xs text-gray-500 whitespace-nowrap">{{ alert.created_at.strftime('%m-%d %H:%M') }}</td>
+                    <td class="py-3 px-2 text-xs"><a href="/admin/users/{{ alert.user_id }}" class="text-gray-300 hover:text-blue-400">{{ email }}</a></td>
+                    <td class="py-3 px-2 text-xs font-mono text-gray-400">{{ alert.parsed_symbol or '—' }}</td>
+                    <td class="py-3 px-2 text-xs text-red-400">{{ alert.error_stage or '—' }}</td>
+                    <td class="py-3 px-2 text-xs text-gray-500 max-w-md truncate" title="{{ alert.error_message or '' }}">{{ alert.error_message or '—' }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+    {% else %}
+    <p class="text-sm text-gray-500">No failures.</p>
+    {% endif %}
 </div>
 
 <script>
-    document.getElementById('user-search').addEventListener('input', function(e) {
-        const term = e.target.value.toLowerCase();
-        const rows = document.querySelectorAll('#user-table-body tr');
-        rows.forEach(row => {
-            const email = row.cells[0].textContent.toLowerCase();
-            row.style.display = email.includes(term) ? '' : 'none';
-        });
+    const checks = () => document.querySelectorAll('.user-check');
+    function updateSelected() {
+        const n = document.querySelectorAll('.user-check:checked').length;
+        document.getElementById('selected-count').textContent = n;
+        document.getElementById('bulk-delete-btn').disabled = n === 0;
+    }
+    document.getElementById('check-all').addEventListener('change', e => {
+        checks().forEach(c => c.checked = e.target.checked);
+        updateSelected();
     });
+    checks().forEach(c => c.addEventListener('change', updateSelected));
 </script>
 
 {% endblock %}

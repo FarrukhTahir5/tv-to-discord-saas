@@ -1,6 +1,7 @@
 from playwright.async_api import async_playwright, Browser, Playwright
 import asyncio
 import logging
+from urllib.parse import urlencode
 
 from app.config import settings
 
@@ -41,7 +42,29 @@ async def stop_browser():
     logger.info("Playwright browser stopped")
 
 
-async def take_screenshot(symbol: str) -> bytes | None:
+def build_chart_url(
+    symbol: str,
+    interval: str | None = None,
+    layout_id: str | None = None,
+) -> str:
+    """
+    TradingView chart URL. A layout_id loads the user's saved layout
+    (indicators, drawings, style); the layout must have sharing enabled.
+    """
+    base = "https://www.tradingview.com/chart/"
+    if layout_id:
+        base += f"{layout_id}/"
+    params = {"symbol": symbol}
+    if interval:
+        params["interval"] = interval
+    return f"{base}?{urlencode(params)}"
+
+
+async def take_screenshot(
+    symbol: str,
+    interval: str | None = None,
+    layout_id: str | None = None,
+) -> bytes | None:
     """
     Returns PNG bytes or None on failure.
     Uses semaphore to enforce strict concurrency limit.
@@ -61,7 +84,7 @@ async def take_screenshot(symbol: str) -> bytes | None:
             )
             page = await context.new_page()
 
-            url = f"https://www.tradingview.com/chart/?symbol={symbol}"
+            url = build_chart_url(symbol, interval, layout_id)
 
             # Navigate with timeout
             await page.goto(
@@ -79,7 +102,7 @@ async def take_screenshot(symbol: str) -> bytes | None:
                 if ":" in symbol:
                     ticker = symbol.split(":", 1)[1]
                     logger.info("Symbol %s not found, retrying with %s", symbol, ticker)
-                    url = f"https://www.tradingview.com/chart/?symbol={ticker}"
+                    url = build_chart_url(ticker, interval, layout_id)
                     await page.goto(
                         url,
                         timeout=settings.playwright_timeout_ms,
@@ -96,44 +119,24 @@ async def take_screenshot(symbol: str) -> bytes | None:
                 )
                 await page.wait_for_timeout(2000)
 
-                # Step 1: Force daily interval via JS dropdown
-                try:
-                    # Just ensure we are on Daily if possible, but don't force weird ranges
-                    await page.evaluate("""() => {
-                        const btns = document.querySelectorAll('button[class*="menuBtn"]');
-                        for (const btn of btns) {
-                            if (btn.innerText.includes('D') || btn.innerText.includes('1D')) return; // Already on Daily
-                            if (btn.offsetParent !== null) {
-                                btn.click();
-                                break;
+                # Step 1: Sensible Zoom (2-3 clicks max) — custom layouts keep their own zoom
+                if not layout_id:
+                    try:
+                        zoom_result = await page.evaluate("""() => {
+                            // Click zoom-in 3 times for a clear view without being "too big"
+                            const zoomBtn = document.querySelector('[class*="control-bar__btn--zoom-in"]');
+                            if (!zoomBtn) return 'zoom button not found';
+                            for (let i = 0; i < 3; i++) {
+                                zoomBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
                             }
-                        }
-                        setTimeout(() => {
-                            const item = document.querySelector('[data-value="1D"]');
-                            if (item) item.click();
-                        }, 500);
-                    }""")
-                    await page.wait_for_timeout(2000)
-                except Exception as e:
-                    logger.warning("Could not set interval for %s: %s", symbol, e)
+                            return 'clicked 3 times';
+                        }""")
+                        logger.info("screenshot %s: zoom => %s", symbol, zoom_result)
+                        await page.wait_for_timeout(2000)
+                    except Exception as e:
+                        logger.warning("Could not zoom for %s: %s", symbol, e)
 
-                # Step 2: Sensible Zoom (2-3 clicks max)
-                try:
-                    zoom_result = await page.evaluate("""() => {
-                        // Click zoom-in 3 times for a clear view without being "too big"
-                        const zoomBtn = document.querySelector('[class*="control-bar__btn--zoom-in"]');
-                        if (!zoomBtn) return 'zoom button not found';
-                        for (let i = 0; i < 3; i++) {
-                            zoomBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-                        }
-                        return 'clicked 3 times';
-                    }""")
-                    logger.info("screenshot %s: zoom => %s", symbol, zoom_result)
-                    await page.wait_for_timeout(2000)
-                except Exception as e:
-                    logger.warning("Could not zoom for %s: %s", symbol, e)
-
-                # Step 4: Hide overlays
+                # Step 2: Hide overlays
                 await page.add_style_tag(content="""
                     .legend-l31H9iuA, .container-SXMXfs_Z, .paneControls-JQv8nO8e,
                     .control-bar-wrapper, .tv-spinner, .tv-floating-toolbar,

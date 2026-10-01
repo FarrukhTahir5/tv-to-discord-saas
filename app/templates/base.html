@@ -37,7 +37,7 @@
           {% else %}bg-gray-700/50 text-gray-400 border border-gray-600{% endif %}">
         {{ user.effective_plan | upper }}
       </span>
-      {% if user.email == 'farrukhtahir5@gmail.com' %}
+      {% if user.is_admin %}
       <a href="/admin" class="text-sm text-orange-400 hover:text-orange-300 transition">Admin</a>
       {% endif %}
       <a href="/dashboard" class="text-sm text-gray-400 hover:text-white transition">Dashboard</a>

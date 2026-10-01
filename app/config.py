@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     secret_key: str
     app_name: str = "ChartAlert"
     app_url: str = "http://localhost:8000"
+    admin_email: str = "farrukhtahir5@gmail.com"
 
     # LemonSqueezy
     lemonsqueezy_api_key: str = ""
@@ -26,6 +27,9 @@ class Settings(BaseSettings):
     playwright_timeout_ms: int = 15000
     screenshot_wait_ms: int = 4000
     screenshot_concurrency: int = 2
+
+    # Admin panel checks the worker's browser through this URL (api mode)
+    worker_health_url: str = "http://worker:8001/health/playwright"
 
     # Redis (optional)
     redis_url: Optional[str] = None

@@ -14,7 +14,11 @@ from app.config import settings
 from app.db import get_db
 from app.models.user import User
 from app.services.auth import get_current_user
-from app.services.lemonsqueezy_svc import create_checkout, verify_webhook_signature
+from app.services.lemonsqueezy_svc import (
+    apply_subscription,
+    create_checkout,
+    verify_webhook_signature,
+)
 
 logger = structlog.get_logger()
 router = APIRouter(prefix="/billing", tags=["billing"])
@@ -72,17 +76,25 @@ async def lemonsqueezy_webhook(
     data = payload.get("data", {})
     attrs = data.get("attributes", {})
 
-    # Extract identifiers
+    # Only subscription objects carry the subscription's status. Payment events
+    # (subscription_payment_*) carry an invoice; LemonSqueezy also sends a
+    # subscription_updated whenever the status changes, so those are skipped.
+    if data.get("type") != "subscriptions":
+        return {"received": True, "skipped": f"Ignored {event_name}"}
+
     user_email = attrs.get("user_email")
     customer_id = str(attrs.get("customer_id", ""))
     subscription_id = str(data.get("id", ""))
-    status = attrs.get("status", "")
 
-    # Try to find user by custom_data user_id first, then by email
+    # Try to find user by custom_data user_id, then LemonSqueezy customer, then email
     user = None
     user_id = custom_data.get("user_id")
     if user_id:
         result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+
+    if not user and customer_id:
+        result = await db.execute(select(User).where(User.ls_customer_id == customer_id))
         user = result.scalar_one_or_none()
 
     if not user and user_email:
@@ -93,42 +105,12 @@ async def lemonsqueezy_webhook(
         logger.warn("lemonsqueezy_webhook_user_not_found", email=user_email, user_id=user_id)
         return {"received": True, "skipped": "User not found"}
 
-    # Handle subscription events
-    if event_name in ("subscription_created", "subscription_updated", "subscription_resumed"):
-        if status in ("active", "on_trial", "paused"):
-            await _set_plan(db, user, "pro", "active", customer_id, subscription_id)
-            logger.info("user_upgraded_to_pro", user_id=user.id, ls_event=event_name)
-
-    elif event_name in ("subscription_cancelled", "subscription_expired"):
-        await _set_plan(db, user, "free", "inactive", customer_id, subscription_id)
-        logger.info("user_downgraded_to_free", user_id=user.id, ls_event=event_name)
-
-    elif event_name == "subscription_payment_failed":
-        if status in ("past_due", "unpaid"):
-            await _set_plan(db, user, "free", "inactive", customer_id, subscription_id)
-            logger.info("user_payment_failed_downgraded", user_id=user.id)
+    status = apply_subscription(user, attrs, subscription_id)
+    await db.commit()
+    logger.info(
+        "lemonsqueezy_subscription_applied",
+        user_id=user.id, ls_event=event_name, status=status,
+        plan=user.plan, ends_at=str(user.subscription_ends_at),
+    )
 
     return {"received": True}
-
-
-# ------------------------------------------------------------------
-# Helper
-# ------------------------------------------------------------------
-async def _set_plan(
-    db: AsyncSession,
-    user: User,
-    plan: str,
-    status: str,
-    customer_id: str = "",
-    subscription_id: str = "",
-):
-    user.plan = plan
-    user.subscription_status = status
-    if customer_id:
-        user.ls_customer_id = customer_id
-    if subscription_id:
-        user.ls_subscription_id = subscription_id
-    user.daily_limit = (
-        settings.pro_alerts_per_day if plan == "pro" else settings.free_alerts_per_day
-    )
-    await db.commit()

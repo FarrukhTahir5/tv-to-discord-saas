@@ -206,6 +206,7 @@ async def _process_alert(alert: AlertLog):
         alert.raw_text,
         user.default_exchange,
         user.default_symbol,
+        user.default_interval,
     )
     await _update_alert(
         alert.id,
@@ -216,7 +217,11 @@ async def _process_alert(alert: AlertLog):
     # --- Screenshot ---
     screenshot = None
     if parsed.symbol:
-        screenshot = await take_screenshot(parsed.symbol)
+        screenshot = await take_screenshot(
+            parsed.symbol,
+            interval=parsed.interval,
+            layout_id=user.chart_layout_id,
+        )
         if screenshot:
             await _update_alert(alert.id, status="screenshot_ok")
 

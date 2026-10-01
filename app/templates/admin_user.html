@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}Admin · {{ u.email }}{% endblock %}
+{% block content %}
+
+<a href="/admin/" class="text-xs text-gray-500 hover:text-gray-300">← All users</a>
+<div class="mt-2 mb-6 flex flex-wrap items-baseline gap-3">
+    <h1 class="text-2xl font-extrabold text-white">{{ u.email }}</h1>
+    {% if u.effective_plan == 'pro' %}
+    <span class="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-bold uppercase">PRO</span>
+    {% else %}
+    <span class="px-2 py-0.5 rounded-full bg-gray-700/30 text-gray-500 border border-gray-600/30 text-xs font-medium uppercase">FREE</span>
+    {% endif %}
+</div>
+
+{% if msg %}
+<div class="mb-6 px-4 py-3 rounded-xl bg-blue-600/10 border border-blue-500/20 text-sm text-blue-300">{{ msg }}</div>
+{% endif %}
+
+<div class="grid md:grid-cols-2 gap-6 mb-6">
+    <!-- Account & billing -->
+    <div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
+        <h2 class="text-lg font-bold mb-4">Account & Billing</h2>
+        <dl class="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
+            <dt class="text-gray-500">Joined</dt><dd class="text-gray-300">{{ u.created_at.strftime('%Y-%m-%d %H:%M') if u.created_at else '—' }}</dd>
+            <dt class="text-gray-500">Stored plan</dt><dd class="text-gray-300">{{ u.plan }}</dd>
+            <dt class="text-gray-500">Billing status</dt><dd class="text-gray-300">{{ u.subscription_status }}</dd>
+            {% if u.subscription_ends_at %}
+            <dt class="text-gray-500">Paid access ends</dt>
+            <dd class="{% if u.subscription_ends_at > now %}text-amber-400{% else %}text-gray-500{% endif %}">{{ u.subscription_ends_at.strftime('%Y-%m-%d %H:%M') }} UTC</dd>
+            {% endif %}
+            <dt class="text-gray-500">Trial</dt>
+            <dd class="text-gray-300">
+                {% if u.trial_expires_at %}{{ u.trial_expires_at.strftime('%Y-%m-%d') }}{% if u.trial_expires_at < now %} (expired){% endif %}{% else %}—{% endif %}
+            </dd>
+            <dt class="text-gray-500">LemonSqueezy</dt>
+            <dd class="text-gray-300 font-mono text-xs">
+                {% if u.ls_subscription_id %}sub {{ u.ls_subscription_id }} · customer {{ u.ls_customer_id or '—' }}{% else %}—{% endif %}
+            </dd>
+            <dt class="text-gray-500">Usage today</dt><dd class="text-gray-300">{{ u.alerts_used_today }} / {{ u.effective_daily_limit }}</dd>
+            <dt class="text-gray-500">Total alerts</dt><dd class="text-gray-300">{{ total_alerts }}</dd>
+            <dt class="text-gray-500">Defaults</dt>
+            <dd class="text-gray-300 text-xs">exchange {{ u.default_exchange }} · symbol {{ u.default_symbol or '—' }} · timeframe {{ u.default_interval or '—' }}{% if u.chart_layout_id %} · layout {{ u.chart_layout_id }}{% endif %}</dd>
+        </dl>
+    </div>
+
+    <!-- Actions -->
+    <div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6 space-y-4">
+        <h2 class="text-lg font-bold">Actions</h2>
+
+        <form method="POST" action="/admin/users/{{ u.id }}/trial" class="flex gap-2 items-center">
+            <input type="number" name="days" value="7" min="1" max="365"
+                class="w-20 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm">
+            <button class="flex-1 py-2 bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/30 text-amber-300 rounded-lg text-sm font-semibold">
+                {{ 'Extend trial by days' if u.on_trial else 'Give Pro trial (days)' }}
+            </button>
+        </form>
+        {% if u.on_trial %}
+        <form method="POST" action="/admin/users/{{ u.id }}/end-trial">
+            <button class="w-full py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-sm">End trial now</button>
+        </form>
+        {% endif %}
+
+        <div class="grid grid-cols-2 gap-2">
+            <form method="POST" action="/admin/users/{{ u.id }}/plan">
+                <input type="hidden" name="plan" value="pro">
+                <button class="w-full py-2 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 rounded-lg text-sm font-semibold"
+                    title="Free Pro with no end date (e.g. a partner). A LemonSqueezy event will override it.">Set Pro manually</button>
+            </form>
+            <form method="POST" action="/admin/users/{{ u.id }}/plan" onsubmit="return confirm('Set this user to Free?');">
+                <input type="hidden" name="plan" value="free">
+                <button class="w-full py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-sm">Set Free</button>
+            </form>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+            <form method="POST" action="/admin/users/{{ u.id }}/sync">
+                <button class="w-full py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-sm disabled:opacity-40"
+                    {% if not u.ls_subscription_id %}disabled title="No LemonSqueezy subscription"{% endif %}>Sync from LemonSqueezy</button>
+            </form>
+            <form method="POST" action="/admin/users/{{ u.id }}/reset-usage">
+                <button class="w-full py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-sm">Reset today's usage</button>
+            </form>
+        </div>
+
+        <a href="mailto:{{ u.email }}" class="block text-center w-full py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-sm">Email user</a>
+
+        <div class="pt-4 border-t border-gray-800">
+            {% if deletable %}
+            <form method="POST" action="/admin/users/{{ u.id }}/delete"
+                  onsubmit="return confirm('Permanently delete this user, their channels and {{ total_alerts }} alerts? This cannot be undone.');">
+                <button class="w-full py-2 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 text-red-300 rounded-lg text-sm font-semibold">Delete user</button>
+            </form>
+            {% else %}
+            <p class="text-xs text-gray-500">This user can't be deleted while they're the admin or have paid access.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Discord channels -->
+<div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6 mb-6">
+    <h2 class="text-lg font-bold mb-4">Discord Channels</h2>
+    {% if webhooks or u.discord_webhook_url %}
+    <ul class="space-y-2 text-sm">
+        {% for wh in webhooks %}
+        <li class="flex justify-between"><span class="text-gray-300">{{ wh.name }}</span><span class="text-xs {% if wh.is_active %}text-emerald-400{% else %}text-gray-500{% endif %}">{{ 'active' if wh.is_active else 'paused' }}</span></li>
+        {% endfor %}
+        {% if u.discord_webhook_url %}
+        <li class="flex justify-between"><span class="text-gray-300">Legacy channel</span><span class="text-xs text-gray-500">fallback</span></li>
+        {% endif %}
+    </ul>
+    {% else %}
+    <p class="text-sm text-gray-500">No channels configured. This user never finished setup.</p>
+    {% endif %}
+</div>
+
+<!-- Alerts -->
+<div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
+    <h2 class="text-lg font-bold mb-4">Last 50 Alerts</h2>
+    {% if alerts %}
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+            <thead>
+                <tr class="text-gray-500 border-b border-gray-800">
+                    <th class="pb-3 px-2 font-semibold">Time (UTC)</th>
+                    <th class="pb-3 px-2 font-semibold">Symbol</th>
+                    <th class="pb-3 px-2 font-semibold">Raw alert</th>
+                    <th class="pb-3 px-2 font-semibold">Status</th>
+                    <th class="pb-3 px-2 font-semibold">Time</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in alerts %}
+                <tr class="border-b border-gray-800/50">
+                    <td class="py-3 px-2 text-xs text-gray-500 whitespace-nowrap">{{ a.created_at.strftime('%m-%d %H:%M') }}</td>
+                    <td class="py-3 px-2 text-xs font-mono text-gray-300">{{ a.parsed_symbol or '—' }}</td>
+                    <td class="py-3 px-2 text-xs text-gray-400 max-w-sm truncate" title="{{ a.raw_text }}">{{ a.raw_text }}</td>
+                    <td class="py-3 px-2 text-xs">
+                        {% if a.status == 'discord_ok' %}<span class="text-emerald-400">delivered</span>
+                        {% elif a.status == 'failed' %}<span class="text-red-400" title="{{ a.error_message or '' }}">failed · {{ a.error_stage }}</span>
+                        {% else %}<span class="text-amber-400">{{ a.status }}</span>{% endif %}
+                    </td>
+                    <td class="py-3 px-2 text-xs text-gray-500">{{ (a.processing_time_ms / 1000)|round(1) ~ 's' if a.processing_time_ms else '—' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-sm text-gray-500">No alerts yet.</p>
+    {% endif %}
+</div>
+
+{% endblock %}
