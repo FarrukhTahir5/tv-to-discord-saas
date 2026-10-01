@@ -117,3 +117,8 @@ def test_lowercase_explicit_symbol_removed_from_message():
     result = parse_alert("nasdaq:aapl breaking out")
     assert result.symbol == "NASDAQ:AAPL"
     assert result.message == "breaking out"
+
+
+def test_qqq_is_nasdaq():
+    assert parse_alert("QQQ at the 727 key area").symbol == "NASDAQ:QQQ"
+    assert parse_alert("SPY is testing ATH").symbol == "AMEX:SPY"

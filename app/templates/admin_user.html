@@ -139,7 +139,8 @@
                     <td class="py-3 px-2 text-xs font-mono text-gray-300">{{ a.parsed_symbol or '—' }}</td>
                     <td class="py-3 px-2 text-xs text-gray-400 max-w-sm truncate" title="{{ a.raw_text }}">{{ a.raw_text }}</td>
                     <td class="py-3 px-2 text-xs">
-                        {% if a.status == 'discord_ok' %}<span class="text-emerald-400">delivered</span>
+                        {% if a.status == 'discord_ok' and a.error_stage == 'screenshot' %}<span class="text-amber-400">delivered, no chart</span>
+                        {% elif a.status == 'discord_ok' %}<span class="text-emerald-400">delivered</span>
                         {% elif a.status == 'failed' %}<span class="text-red-400" title="{{ a.error_message or '' }}">failed · {{ a.error_stage }}</span>
                         {% else %}<span class="text-amber-400">{{ a.status }}</span>{% endif %}
                     </td>

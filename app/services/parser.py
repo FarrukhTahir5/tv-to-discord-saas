@@ -229,8 +229,10 @@ def detect_exchange(ticker: str) -> Optional[str]:
     if ticker in global_indices:
         return global_indices[ticker]
 
-    # 4. Major US ETFs (mostly AMEX/NYSE Arca)
-    etfs = {"SPY", "QQQ", "IWM", "DIA", "GLD", "SLV", "TLT", "VXX", "UVXY", "ARKK"}
+    # 4. Major US ETFs (TradingView lists NYSE Arca ETFs under AMEX)
+    if ticker in {"QQQ", "TQQQ", "SQQQ", "TLT"}:
+        return "NASDAQ"
+    etfs = {"SPY", "IWM", "DIA", "GLD", "SLV", "VXX", "UVXY", "ARKK"}
     if ticker in etfs:
         return "AMEX"
 

@@ -53,7 +53,7 @@
     <div class="{% if stats.failed_24h %}bg-red-600/10 border-red-500/20{% else %}bg-gray-900/50 border-gray-800{% endif %} border p-5 rounded-2xl">
         <div class="text-xs font-semibold {% if stats.failed_24h %}text-red-400{% else %}text-gray-500{% endif %} uppercase mb-1">Failed (24h)</div>
         <div class="text-2xl font-bold {% if stats.failed_24h %}text-red-400{% else %}text-white{% endif %}">{{ stats.failed_24h }}</div>
-        {% if stats.alerts_24h %}<div class="text-xs text-gray-500 mt-1">{{ (100 * stats.failed_24h / stats.alerts_24h)|round|int }}% failure rate</div>{% endif %}
+        <div class="text-xs text-gray-500 mt-1">{% if stats.alerts_24h %}{{ (100 * stats.failed_24h / stats.alerts_24h)|round|int }}% failure rate · {% endif %}{{ stats.no_chart_24h }} sent without chart</div>
     </div>
     <div class="{% if stats.queue_oldest_min and stats.queue_oldest_min > 5 %}bg-red-600/10 border-red-500/20{% else %}bg-gray-900/50 border-gray-800{% endif %} border p-5 rounded-2xl">
         <div class="text-xs font-semibold text-gray-500 uppercase mb-1">Queue</div>

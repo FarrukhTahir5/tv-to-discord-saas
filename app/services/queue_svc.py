@@ -11,6 +11,7 @@ This design works across separate processes with no shared memory.
 """
 
 import asyncio
+import datetime
 import json
 import time
 import logging
@@ -31,6 +32,16 @@ logger = logging.getLogger(__name__)
 _worker_task: Optional[asyncio.Task] = None
 _redis_listener_task: Optional[asyncio.Task] = None
 _notify_event = asyncio.Event()
+
+# Alerts processed in parallel (one browser tab each)
+_slots: Optional[asyncio.Semaphore] = None
+_running: set[asyncio.Task] = set()
+
+# The screenshot gets its own limit so the text alert is still posted
+# if TradingView is slow; the job limit is a backstop for everything else.
+SCREENSHOT_TIMEOUT_S = 100
+JOB_TIMEOUT_S = 150
+STALE_PROCESSING_MIN = 10
 
 # ---- Redis (optional instant notification) -------------------------
 
@@ -72,19 +83,24 @@ async def notify_worker(alert_id: str):
 
 async def start_worker():
     """Launch the background worker loop."""
-    global _worker_task, _redis_listener_task
+    global _worker_task, _redis_listener_task, _slots
     await _init_redis()
+    await _fail_stale_jobs()
+    _slots = asyncio.Semaphore(settings.screenshot_concurrency)
     _worker_task = asyncio.create_task(_worker_loop())
 
     if _redis:
         _redis_listener_task = asyncio.create_task(_redis_subscribe_loop())
 
-    logger.info("Queue worker started (poll_interval=2s)")
+    logger.info(
+        "Queue worker started (poll_interval=2s, parallel=%d)",
+        settings.screenshot_concurrency,
+    )
 
 
 async def stop_worker():
     """Cancel the worker tasks."""
-    for task in (_worker_task, _redis_listener_task):
+    for task in (_worker_task, _redis_listener_task, *_running):
         if task:
             task.cancel()
             try:
@@ -99,24 +115,51 @@ async def stop_worker():
 # ---- Worker main loops ---------------------------------------------
 
 async def _worker_loop():
-    """Poll the DB for queued alerts and process them."""
+    """Claim queued alerts from the DB and process up to N at a time."""
     while True:
         try:
-            processed = await _poll_and_process()
-            if processed:
-                # There might be more, loop immediately
-                continue
-            # Wait for either a Redis notification or poll timeout
-            _notify_event.clear()
+            await _slots.acquire()
             try:
-                await asyncio.wait_for(_notify_event.wait(), timeout=2.0)
-            except asyncio.TimeoutError:
-                pass  # Normal — just poll again
+                alert = await _claim_next()
+            except Exception:
+                _slots.release()
+                raise
+            if alert is None:
+                _slots.release()
+                # Wait for either a Redis notification or poll timeout
+                _notify_event.clear()
+                try:
+                    await asyncio.wait_for(_notify_event.wait(), timeout=2.0)
+                except asyncio.TimeoutError:
+                    pass  # Normal — just poll again
+                continue
+            task = asyncio.create_task(_run_job(alert))
+            _running.add(task)
+            task.add_done_callback(_job_done)
         except asyncio.CancelledError:
             raise
         except Exception as e:
             logger.error("Worker loop error: %s", e, exc_info=True)
             await asyncio.sleep(5)  # Back off on error
+
+
+def _job_done(task: asyncio.Task):
+    _running.discard(task)
+    _slots.release()
+
+
+async def _fail_stale_jobs():
+    """Alerts left 'processing' by a crash or restart would otherwise sit there forever."""
+    cutoff = datetime.datetime.utcnow() - datetime.timedelta(minutes=STALE_PROCESSING_MIN)
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            update(AlertLog)
+            .where(AlertLog.status == "processing", AlertLog.created_at < cutoff)
+            .values(status="failed", error_stage="timeout", error_message="Worker restarted")
+        )
+        await db.commit()
+    if result.rowcount:
+        logger.warning("Marked %d stale processing alerts as failed", result.rowcount)
 
 
 async def _redis_subscribe_loop():
@@ -133,15 +176,12 @@ async def _redis_subscribe_loop():
         logger.warning("Redis subscriber lost: %s", e)
 
 
-async def _poll_and_process() -> bool:
+async def _claim_next() -> Optional[AlertLog]:
     """
-    Claim one queued alert from the DB and process it.
-    Returns True if a job was found, False otherwise.
-    Uses UPDATE ... WHERE status='queued' LIMIT 1 to prevent
-    multiple workers from grabbing the same job.
+    Atomically claim the oldest queued alert. SKIP LOCKED stops
+    parallel jobs (or several workers) from grabbing the same one.
     """
     async with AsyncSessionLocal() as db:
-        # Atomically claim a queued job
         result = await db.execute(
             select(AlertLog)
             .where(AlertLog.status == "queued")
@@ -151,20 +191,20 @@ async def _poll_and_process() -> bool:
         )
         alert = result.scalar_one_or_none()
         if not alert:
-            return False
-
-        # Mark as processing
+            return None
         alert.status = "processing"
         await db.commit()
+        return alert
 
-    # Process outside the DB lock
+
+async def _run_job(alert: AlertLog):
     try:
-        await asyncio.wait_for(_process_alert(alert), timeout=30)
+        await asyncio.wait_for(_process_alert(alert), timeout=JOB_TIMEOUT_S)
     except asyncio.TimeoutError:
-        logger.error("Job %s timed out after 30s", alert.id)
+        logger.error("Job %s timed out after %ss", alert.id, JOB_TIMEOUT_S)
         await _update_alert(
             alert.id, status="failed",
-            error_stage="timeout", error_message="Job timed out after 30s",
+            error_stage="timeout", error_message=f"Job timed out after {JOB_TIMEOUT_S}s",
         )
     except Exception as e:
         logger.error("Job %s exception: %s", alert.id, e, exc_info=True)
@@ -172,7 +212,6 @@ async def _poll_and_process() -> bool:
             alert.id, status="failed",
             error_stage="unknown", error_message=str(e),
         )
-    return True
 
 
 async def _process_alert(alert: AlertLog):
@@ -217,11 +256,17 @@ async def _process_alert(alert: AlertLog):
     # --- Screenshot ---
     screenshot = None
     if parsed.symbol:
-        screenshot = await take_screenshot(
-            parsed.symbol,
-            interval=parsed.interval or "D",  # daily unless the user chose otherwise
-            layout_id=user.chart_layout_id,
-        )
+        try:
+            screenshot = await asyncio.wait_for(
+                take_screenshot(
+                    parsed.symbol,
+                    interval=parsed.interval or "D",  # daily unless the user chose otherwise
+                    layout_id=user.chart_layout_id,
+                ),
+                timeout=SCREENSHOT_TIMEOUT_S,
+            )
+        except asyncio.TimeoutError:
+            logger.error("Screenshot for %s timed out after %ss", parsed.symbol, SCREENSHOT_TIMEOUT_S)
         if screenshot:
             await _update_alert(alert.id, status="screenshot_ok")
 
@@ -263,10 +308,16 @@ async def _process_alert(alert: AlertLog):
 
     elapsed_ms = int((time.monotonic() - start_time) * 1000)
 
+    if success and not screenshot:
+        # Delivered, but as text only — tracked so the admin panel can show it
+        error_stage, error_msg = "screenshot", "Delivered without chart"
+    else:
+        error_stage = None if success else "discord"
+
     await _update_alert(
         alert.id,
         status="discord_ok" if success else "failed",
-        error_stage=None if success else "discord",
+        error_stage=error_stage,
         error_message=error_msg,
         discord_status_code=status_code,
         processing_time_ms=elapsed_ms,

@@ -152,6 +152,15 @@ async def admin_dashboard(
             )
         )
     ).scalar()
+    stats["no_chart_24h"] = (
+        await db.execute(
+            select(func.count(AlertLog.id)).where(
+                AlertLog.created_at >= day_ago,
+                AlertLog.status == "discord_ok",
+                AlertLog.error_stage == "screenshot",
+            )
+        )
+    ).scalar()
     stats["total_alerts"] = (await db.execute(select(func.count(AlertLog.id)))).scalar()
 
     # Queue health

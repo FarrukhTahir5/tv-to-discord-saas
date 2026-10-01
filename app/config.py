@@ -24,8 +24,8 @@ class Settings(BaseSettings):
     pro_alerts_per_day: int = 500
 
     # Playwright
-    playwright_timeout_ms: int = 15000
-    screenshot_wait_ms: int = 4000
+    playwright_timeout_ms: int = 20000
+    screenshot_wait_ms: int = 1500
     screenshot_concurrency: int = 2
 
     # Admin panel checks the worker's browser through this URL (api mode)

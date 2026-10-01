@@ -371,7 +371,11 @@
                     <td class="py-2.5 px-3 text-gray-300 max-w-[200px] truncate">{{ alert.parsed_message or
                         alert.raw_text }}</td>
                     <td class="py-2.5 px-3">
-                        {% if alert.status == 'discord_ok' %}
+                        {% if alert.status == 'discord_ok' and alert.error_stage == 'screenshot' %}
+                        <span
+                            class="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                            title="The alert was posted, but the chart couldn't be captured in time">✓ Sent (no chart)</span>
+                        {% elif alert.status == 'discord_ok' %}
                         <span
                             class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">✓
                             Sent</span>
