@@ -2,32 +2,128 @@
 {% block title %}Dashboard{% endblock %}
 {% block content %}
 
-<!-- Webhook URL Section -->
-<div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6 mb-6">
-    <h2 class="text-lg font-bold mb-1">🔗 Your Webhook URL</h2>
-    <p class="text-sm text-gray-400 mb-4">Paste this URL into TradingView's alert notification settings as a "Webhook
-        URL".</p>
+{% macro copy_field(id, value, label) %}
+<div>
+    <label class="block text-xs font-medium text-gray-400 mb-1">{{ label }}</label>
+    <div class="flex gap-2">
+        <input type="text" id="{{ id }}" value="{{ value }}" readonly onclick="this.select()"
+            class="flex-1 min-w-0 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm font-mono text-blue-400 focus:outline-none">
+        <button type="button" onclick="copyText('{{ id }}', this)"
+            class="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold transition whitespace-nowrap">Copy</button>
+    </div>
+</div>
+{% endmacro %}
 
-    <div class="flex items-center gap-3">
-        <input type="text" id="webhook-url" value="{{ webhook_url }}" readonly
-            class="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm font-mono text-blue-400 focus:outline-none">
-        <button onclick="copyWebhook()" id="copy-btn"
-            class="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold transition whitespace-nowrap">
-            📋 Copy
-        </button>
+{% macro step_badge(done, n) %}
+{% if done %}
+<span class="flex-shrink-0 w-7 h-7 bg-emerald-500 rounded-full flex items-center justify-center text-sm font-bold text-gray-950">✓</span>
+{% else %}
+<span class="flex-shrink-0 w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center text-sm font-bold">{{ n }}</span>
+{% endif %}
+{% endmacro %}
+
+{% if test_sent %}
+<div class="mb-6 px-4 py-3 rounded-xl bg-blue-600/10 border border-blue-500/20 text-sm text-blue-300">
+    Test alert sent. A BTC chart should appear in your Discord channel within about 15 seconds. This page refreshes on its own.
+</div>
+{% endif %}
+
+{% if not setup.complete %}
+<!-- Setup checklist (shown until the first real TradingView alert arrives) -->
+{% set done_count = [setup.channel, setup.test, setup.tradingview] | select | list | length %}
+<div class="bg-gray-900/50 border border-blue-500/30 rounded-2xl p-6 mb-6">
+    <div class="flex items-baseline justify-between mb-1">
+        <h2 class="text-lg font-bold">Get set up in 2 minutes</h2>
+        <span class="text-xs text-gray-500">{{ done_count }} of 3 done</span>
+    </div>
+    <div class="w-full bg-gray-800 rounded-full h-1.5 mb-6">
+        <div class="h-full bg-emerald-500 rounded-full transition-all" style="width: {{ (done_count / 3 * 100) | int }}%"></div>
     </div>
 
+    <ol class="space-y-6">
+        <!-- Step 1: Discord -->
+        <li class="flex gap-4">
+            {{ step_badge(setup.channel, 1) }}
+            <div class="flex-1 min-w-0">
+                <h3 class="font-semibold mb-1">Connect Discord</h3>
+                {% if setup.channel %}
+                <p class="text-sm text-gray-400">Connected{% if user_webhooks %} to {{ user_webhooks | map(attribute='name') | join(', ') }}{% endif %}.</p>
+                {% else %}
+                <p class="text-sm text-gray-400 mb-3">
+                    In Discord: <strong class="text-gray-200">Channel settings → Integrations → Webhooks → New Webhook → Copy Webhook URL</strong>. Paste it here:
+                </p>
+                <form method="POST" action="/dashboard/webhooks/add" class="flex gap-2">
+                    <input type="url" name="url" placeholder="https://discord.com/api/webhooks/..." required
+                        class="flex-1 min-w-0 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm focus:border-blue-500 outline-none transition">
+                    <button type="submit" class="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold transition whitespace-nowrap">Connect</button>
+                </form>
+                {% endif %}
+            </div>
+        </li>
+
+        <!-- Step 2: Test -->
+        <li class="flex gap-4">
+            {{ step_badge(setup.test, 2) }}
+            <div class="flex-1 min-w-0">
+                <h3 class="font-semibold mb-1">Send a test</h3>
+                {% if setup.test %}
+                <p class="text-sm text-gray-400">Test delivered. Your Discord connection works.</p>
+                {% else %}
+                <p class="text-sm text-gray-400 mb-3">Sends a sample BTC chart to your Discord channel.</p>
+                <form method="POST" action="/dashboard/test-alert">
+                    <button type="submit" {% if not setup.channel %}disabled title="Connect Discord first"{% endif %}
+                        class="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed">
+                        Send test alert
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </li>
+
+        <!-- Step 3: TradingView -->
+        <li class="flex gap-4">
+            {{ step_badge(setup.tradingview, 3) }}
+            <div class="flex-1 min-w-0">
+                <h3 class="font-semibold mb-1">Add to TradingView</h3>
+                <p class="text-sm text-gray-400 mb-3">
+                    Create an alert (<kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded text-xs">Alt</kbd> + <kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded text-xs">A</kbd>).
+                    In <strong class="text-gray-200">Notifications</strong>, tick <strong class="text-gray-200">Webhook URL</strong> and paste the URL.
+                    Paste the message into the <strong class="text-gray-200">Message</strong> box, then click <strong class="text-gray-200">Create</strong>.
+                </p>
+                <div class="space-y-3">
+                    {{ copy_field('webhook-url', webhook_url, 'Webhook URL') }}
+                    {{ copy_field('alert-message', alert_message, 'Message') }}
+                </div>
+                <p class="text-xs text-gray-500 mt-2">This step ticks itself when your first TradingView alert arrives.</p>
+            </div>
+        </li>
+    </ol>
+</div>
+{% else %}
+<!-- TradingView connection (after setup) -->
+<div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6 mb-6">
+    <div class="flex flex-wrap items-baseline justify-between gap-2 mb-4">
+        <h2 class="text-lg font-bold">Your TradingView connection</h2>
+        <form method="POST" action="/dashboard/test-alert">
+            <button type="submit" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-xs font-semibold transition">Send test alert</button>
+        </form>
+    </div>
+    <div class="grid md:grid-cols-2 gap-4">
+        {{ copy_field('webhook-url', webhook_url, 'Webhook URL (Notifications → Webhook URL)') }}
+        {{ copy_field('alert-message', alert_message, 'Message (works for every alert)') }}
+    </div>
     <div class="mt-4 flex items-center gap-3">
         <form method="POST" action="/dashboard/rotate-token">
             <button type="submit" class="text-xs text-gray-500 hover:text-orange-400 transition"
-                onclick="return confirm('This will invalidate your current webhook URL. Continue?')">
-                🔄 Rotate Token
+                onclick="return confirm('This will invalidate your current webhook URL. You will need to update it in every TradingView alert. Continue?')">
+                Rotate token
             </button>
         </form>
         <span class="text-xs text-gray-600">Token created: {{ user.webhook_token_created_at.strftime('%Y-%m-%d') if
             user.webhook_token_created_at else 'N/A' }}</span>
     </div>
 </div>
+{% endif %}
 
 <!-- Usage + Settings Grid -->
 <div class="grid md:grid-cols-2 gap-6 mb-6">
@@ -78,9 +174,51 @@
             </div>
         </div>
         {% else %}
-        <div class="mt-6 flex items-center justify-between py-3 px-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
-            <span class="text-xs font-bold text-blue-400 tracking-wider">🌟 PRO FEATURES ACTIVE</span>
-            <span class="text-[10px] text-blue-500/60 uppercase font-mono">Priority Tier</span>
+        <!-- Billing (Pro) -->
+        <div class="mt-6 p-4 bg-blue-500/5 border border-blue-500/20 rounded-xl">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold text-blue-400 uppercase tracking-wider">Pro plan</span>
+                {% if user.subscription_status == 'past_due' %}
+                <span class="text-[11px] px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/30">Payment failed</span>
+                {% elif user.subscription_status == 'cancelled' %}
+                <span class="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">Cancelled</span>
+                {% elif user.on_trial and not user.ls_subscription_id %}
+                <span class="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">Free trial</span>
+                {% else %}
+                <span class="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">Active</span>
+                {% endif %}
+            </div>
+
+            <p class="text-sm text-gray-300 mb-3">
+                {% if user.subscription_status == 'past_due' %}
+                Your last payment didn't go through. Update your card to keep Pro.
+                {% elif user.subscription_status == 'cancelled' and user.subscription_ends_at %}
+                Pro until <strong>{{ user.subscription_ends_at.strftime('%b %d, %Y') }}</strong>. Resume any time before then to keep it.
+                {% elif user.on_trial and not user.ls_subscription_id %}
+                Your free trial ends <strong>{{ user.trial_expires_at.strftime('%b %d, %Y') }}</strong>. Subscribe to keep 500 alerts a day.
+                {% elif user.ls_subscription_id %}
+                {% if user.subscription_renews_at %}Renews <strong>{{ user.subscription_renews_at.strftime('%b %d, %Y') }}</strong>.{% else %}Your subscription is active.{% endif %}
+                {% else %}
+                Pro access granted by {{ app_name }}.
+                {% endif %}
+            </p>
+
+            {% if user.ls_subscription_id %}
+            <div class="flex flex-wrap gap-2">
+                {% if user.subscription_status == 'past_due' %}
+                <a href="/billing/portal?to=card" class="px-3 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-xs font-semibold transition">Update card</a>
+                {% endif %}
+                <a href="/billing/portal" class="px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-xs font-semibold transition">
+                    {{ 'Resume subscription' if user.subscription_status == 'cancelled' else 'Manage billing' }}
+                </a>
+            </div>
+            <p class="text-[11px] text-gray-500 mt-2">Change card, download invoices, switch plan, or cancel.</p>
+            {% elif user.on_trial %}
+            <form method="POST" action="/billing/create-checkout">
+                <input type="hidden" name="plan_type" value="monthly">
+                <button type="submit" class="px-3 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-semibold transition">Subscribe to Pro</button>
+            </form>
+            {% endif %}
         </div>
         {% endif %}
     </div>
@@ -96,7 +234,7 @@
         <form method="POST" action="/dashboard/webhooks/add" class="mb-8 p-4 bg-gray-800/30 border border-gray-700/50 rounded-xl">
             <h3 class="text-xs font-bold text-gray-400 uppercase mb-3 px-1">Add New Discord Channel</h3>
             <div class="space-y-3">
-                <input type="text" name="name" placeholder="Channel Nickname (e.g. VIP Group)" required
+                <input type="text" name="name" placeholder="Channel nickname (optional, e.g. VIP Group)"
                     class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm focus:border-blue-500 outline-none transition">
                 <div class="flex gap-2">
                     <input type="url" name="url" placeholder="Discord Webhook URL" required
@@ -266,57 +404,39 @@
     {% else %}
     <div class="text-center py-10 text-gray-500">
         <div class="text-3xl mb-3">📭</div>
-        <p>No alerts yet. Set up your TradingView alert to get started!</p>
+        <p>No alerts yet. Follow the setup steps at the top of this page.</p>
     </div>
     {% endif %}
 </div>
 
-<!-- TradingView Setup Guide -->
-<div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6 mt-6">
-    <h2 class="text-lg font-bold mb-4">📖 Quick Setup Guide</h2>
-    <ol class="space-y-3 text-sm text-gray-300">
-        <li class="flex gap-3">
-            <span
-                class="flex-shrink-0 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold">1</span>
-            <span>Copy your webhook URL above</span>
-        </li>
-        <li class="flex gap-3">
-            <span
-                class="flex-shrink-0 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold">2</span>
-            <span>In TradingView, create or edit an alert → scroll to "Notifications"</span>
-        </li>
-        <li class="flex gap-3">
-            <span
-                class="flex-shrink-0 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold">3</span>
-            <span>Check "Webhook URL" and paste your URL</span>
-        </li>
-        <li class="flex gap-3">
-            <span
-                class="flex-shrink-0 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold">4</span>
-            <div class="flex-1">
-                <span class="block mb-2">Set the alert message to include the exact ticker. We strongly recommend using the exact <strong>EXCHANGE:TICKER</strong> format or adding a <strong>comma</strong> after the ticker:</span>
-                <ul class="list-disc pl-5 space-y-1 text-gray-400 mb-1">
-                    <li><code class="bg-gray-800 px-2 py-0.5 rounded text-blue-400">NASDAQ:AAPL</code> (Best)</li>
-                    <li><code class="bg-gray-800 px-2 py-0.5 rounded text-blue-400">AAPL, breakout above 200</code> (Good)</li>
-                </ul>
-            </div>
-        </li>
-        <li class="flex gap-3">
-            <span
-                class="flex-shrink-0 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold">5</span>
-            <span>Save the alert — screenshots will appear in your Discord channel!</span>
-        </li>
+{% if setup.complete %}
+<!-- Setup guide (collapsed, for adding more alerts later) -->
+<details class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6 mt-6 group">
+    <summary class="text-lg font-bold cursor-pointer list-none flex items-center justify-between">
+        Setup guide
+        <span class="text-sm text-gray-500 font-normal group-open:hidden">Show</span>
+        <span class="text-sm text-gray-500 font-normal hidden group-open:inline">Hide</span>
+    </summary>
+    <ol class="mt-4 space-y-3 text-sm text-gray-300 list-decimal pl-5">
+        <li><strong>Discord:</strong> Channel settings → Integrations → Webhooks → New Webhook → Copy Webhook URL. Add it under Discord Channels.</li>
+        <li><strong>TradingView:</strong> create an alert (Alt + A). In Notifications, tick Webhook URL and paste your URL. Paste the message into the Message box. Click Create.</li>
+        <li><strong>Optional:</strong> paste a shared chart layout link under Preferences so screenshots show your indicators.</li>
     </ol>
-</div>
+</details>
+{% endif %}
 
 <script>
-    function copyWebhook() {
-        const input = document.getElementById('webhook-url');
+    function copyText(id, btn) {
+        const input = document.getElementById(id);
         navigator.clipboard.writeText(input.value);
-        const btn = document.getElementById('copy-btn');
-        btn.textContent = '✅ Copied!';
-        setTimeout(() => btn.textContent = '📋 Copy', 2000);
+        const old = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = old, 2000);
     }
+    {% if test_sent %}
+    setTimeout(() => window.location.replace('/dashboard'), 20000);
+    {% endif %}
 </script>
+
 
 {% endblock %}

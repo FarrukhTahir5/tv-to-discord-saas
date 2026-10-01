@@ -28,6 +28,9 @@
             <dt class="text-gray-500">Paid access ends</dt>
             <dd class="{% if u.subscription_ends_at > now %}text-amber-400{% else %}text-gray-500{% endif %}">{{ u.subscription_ends_at.strftime('%Y-%m-%d %H:%M') }} UTC</dd>
             {% endif %}
+            {% if u.subscription_renews_at %}
+            <dt class="text-gray-500">Renews</dt><dd class="text-gray-300">{{ u.subscription_renews_at.strftime('%Y-%m-%d') }}</dd>
+            {% endif %}
             <dt class="text-gray-500">Trial</dt>
             <dd class="text-gray-300">
                 {% if u.trial_expires_at %}{{ u.trial_expires_at.strftime('%Y-%m-%d') }}{% if u.trial_expires_at < now %} (expired){% endif %}{% else %}—{% endif %}

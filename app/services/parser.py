@@ -4,6 +4,9 @@ from typing import Optional
 
 
 TICKER_REGEX = re.compile(r"\b([A-Z]{1,12}(?:[.\-][A-Z0-9]{1,4})?)\b")
+EXPLICIT_SYMBOL_REGEX = re.compile(
+    r"(?<![A-Z0-9_])([A-Z][A-Z0-9_]*:[A-Z0-9][A-Z0-9._!\-]{0,19})"
+)
 
 STOP_WORDS = {
     "THE", "AND", "FOR", "WITH", "THIS", "FROM", "THAT", "WILL",
@@ -122,13 +125,14 @@ def _parse_symbol(
 ) -> ParsedAlert:
 
     # Layer 1: Explicit EXCHANGE:TICKER format
-    explicit_match = re.search(
-        r"\b([A-Z_]+:[A-Z0-9]{1,12})\b", raw_text.upper()
-    )
+    # Tickers may contain . ! - _ (BRK.B, ES1!, BTCUSDT.P); the exchange
+    # must start with a letter so times like 12:30 aren't matched.
+    explicit_match = EXPLICIT_SYMBOL_REGEX.search(raw_text.upper())
     if explicit_match:
-        symbol = explicit_match.group(1)
+        symbol = explicit_match.group(1).rstrip(".-")
         ticker = symbol.split(":")[1]
-        message = raw_text.replace(explicit_match.group(), "").strip()
+        start, end = explicit_match.start(1), explicit_match.start(1) + len(symbol)
+        message = (raw_text[:start] + raw_text[end:]).strip()
         return ParsedAlert(
             ticker=ticker,
             symbol=symbol,

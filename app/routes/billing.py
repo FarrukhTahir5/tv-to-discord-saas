@@ -17,6 +17,7 @@ from app.services.auth import get_current_user
 from app.services.lemonsqueezy_svc import (
     apply_subscription,
     create_checkout,
+    get_subscription,
     verify_webhook_signature,
 )
 
@@ -52,6 +53,33 @@ async def billing_create_checkout(
     except Exception as e:
         logger.error("lemonsqueezy_checkout_failed", error=str(e))
         raise HTTPException(status_code=400, detail=str(e))
+
+
+# ------------------------------------------------------------------
+# Customer portal → change card, invoices, cancel/resume, switch plan
+# ------------------------------------------------------------------
+# LemonSqueezy's generic buyer portal, used if the signed link can't be fetched
+LS_FALLBACK_PORTAL = "https://app.lemonsqueezy.com/my-orders"
+
+
+@router.get("/portal")
+async def billing_portal(
+    to: str = "portal",
+    user: User = Depends(get_current_user),
+):
+    """Redirect to this customer's LemonSqueezy portal (signed links expire, so fetch fresh)."""
+    if not user.ls_subscription_id:
+        return RedirectResponse(url="/pricing", status_code=303)
+    try:
+        attrs = await get_subscription(user.ls_subscription_id)
+        urls = attrs.get("urls") or {}
+        url = (
+            urls.get("update_payment_method") if to == "card" else None
+        ) or urls.get("customer_portal")
+    except Exception as e:
+        logger.error("lemonsqueezy_portal_failed", user_id=user.id, error=str(e))
+        url = None
+    return RedirectResponse(url=url or LS_FALLBACK_PORTAL, status_code=303)
 
 
 # ------------------------------------------------------------------

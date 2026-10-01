@@ -66,6 +66,10 @@ class User(Base):
     subscription_ends_at: Mapped[datetime.datetime | None] = mapped_column(
         DateTime, nullable=True
     )
+    # Next renewal date of an active subscription (UTC), shown on the dashboard
+    subscription_renews_at: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime, nullable=True
+    )
 
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime, default=func.now()

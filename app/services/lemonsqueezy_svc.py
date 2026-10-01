@@ -112,6 +112,7 @@ def apply_subscription(user, attrs: dict, subscription_id: str = "") -> str:
         user.plan = "pro"
         user.subscription_status = status
         user.subscription_ends_at = None
+        user.subscription_renews_at = parse_ls_datetime(attrs.get("renews_at"))
     elif status == "cancelled":
         user.plan = "pro"
         user.subscription_status = "cancelled"
@@ -119,10 +120,12 @@ def apply_subscription(user, attrs: dict, subscription_id: str = "") -> str:
         user.subscription_ends_at = (
             parse_ls_datetime(attrs.get("ends_at")) or datetime.datetime.utcnow()
         )
+        user.subscription_renews_at = None
     else:  # expired, unpaid, paused
         user.plan = "free"
         user.subscription_status = "inactive"
         user.subscription_ends_at = None
+        user.subscription_renews_at = None
 
     if customer_id:
         user.ls_customer_id = customer_id

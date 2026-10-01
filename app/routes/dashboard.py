@@ -10,6 +10,8 @@ from sqlalchemy import select
 
 from app.db import get_db
 from app.models import AlertLog, User, UserWebhook
+from app.routes.webhook import make_idempotency_key
+from app.services.queue_svc import notify_worker
 from app.services.auth import get_current_user
 
 from app.config import settings
@@ -22,6 +24,12 @@ DISCORD_WEBHOOK_PATTERN = re.compile(
 )
 CHART_LAYOUT_PATTERN = re.compile(r"tradingview\.com/chart/([A-Za-z0-9]{6,12})(?:/|\?|$)")
 LAYOUT_ID_PATTERN = re.compile(r"^[A-Za-z0-9]{6,12}$")
+
+# One message works for every TradingView alert: TradingView fills in the
+# placeholders, so the symbol and timeframe are always exact.
+ALERT_MESSAGE_TEMPLATE = "{{exchange}}:{{ticker}} tf={{interval}} Price {{close}}"
+
+TEST_ALERT_TEXT = "BINANCE:BTCUSDT tf=60 ChartAlert test alert: your setup works!"
 
 # TradingView interval value -> label shown in the settings dropdown
 INTERVAL_CHOICES = {
@@ -56,6 +64,29 @@ async def dashboard(
     webhook_url = f"{settings.app_url}/webhook/{user.webhook_token}"
     alert_limit = user.effective_daily_limit
 
+    # Setup progress: Discord connected -> test delivered -> first real alert
+    has_channel = bool(user_webhooks or user.discord_webhook_url)
+    test_delivered = (
+        await db.execute(
+            select(AlertLog.id).where(
+                AlertLog.user_id == user.id, AlertLog.status == "discord_ok"
+            ).limit(1)
+        )
+    ).first() is not None
+    has_real_alert = (
+        await db.execute(
+            select(AlertLog.id).where(
+                AlertLog.user_id == user.id, AlertLog.raw_text != TEST_ALERT_TEXT
+            ).limit(1)
+        )
+    ).first() is not None
+    setup = {
+        "channel": has_channel,
+        "test": test_delivered,
+        "tradingview": has_real_alert,
+        "complete": has_channel and has_real_alert,
+    }
+
     return templates.TemplateResponse(
         "dashboard.html",
         {
@@ -67,6 +98,9 @@ async def dashboard(
             "alert_limit": alert_limit,
             "app_name": settings.app_name,
             "interval_choices": INTERVAL_CHOICES,
+            "alert_message": ALERT_MESSAGE_TEMPLATE,
+            "setup": setup,
+            "test_sent": request.query_params.get("test") == "sent",
             "title": "Dashboard",
         },
     )
@@ -138,7 +172,7 @@ async def add_webhook(
     db: AsyncSession = Depends(get_db),
 ):
     form = await request.form()
-    name = form.get("name", "Alert Channel").strip()
+    name = form.get("name", "").strip() or "My Channel"
     url = form.get("url", "").strip()
 
     if not url or not DISCORD_WEBHOOK_PATTERN.match(url):
@@ -170,3 +204,33 @@ async def delete_webhook(
     await db.commit()
 
     return RedirectResponse(url="/dashboard", status_code=303)
+
+
+@router.post("/dashboard/test-alert")
+async def send_test_alert(
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Queue a sample alert through the normal pipeline (screenshot + Discord)."""
+    has_channel = user.discord_webhook_url or (
+        await db.execute(select(UserWebhook.id).where(UserWebhook.user_id == user.id).limit(1))
+    ).first()
+    if not has_channel:
+        raise HTTPException(400, "Connect a Discord channel first")
+
+    idem_key = make_idempotency_key(user.id, TEST_ALERT_TEXT)
+    existing = await db.execute(select(AlertLog.id).where(AlertLog.idempotency_key == idem_key))
+    if existing.first() is None:
+        alert = AlertLog(
+            user_id=user.id,
+            idempotency_key=idem_key,
+            raw_text=TEST_ALERT_TEXT,
+            status="queued",
+            request_ip=request.client.host if request.client else None,
+        )
+        db.add(alert)
+        await db.commit()
+        await notify_worker(alert.id)
+
+    return RedirectResponse(url="/dashboard?test=sent", status_code=303)

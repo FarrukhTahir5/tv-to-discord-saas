@@ -94,3 +94,36 @@ def test_default_interval_fallback():
 def test_alert_interval_overrides_default():
     result = parse_alert("AAPL breakout tf=5", default_interval="D")
     assert result.interval == "5"
+
+
+# ---- Recommended copy-paste message ---------------------------------
+# {{exchange}}:{{ticker}} tf={{interval}} Price {{close}}
+
+def test_recommended_message_format():
+    result = parse_alert("NASDAQ:AAPL tf=15 Price 182.35")
+    assert result.symbol == "NASDAQ:AAPL"
+    assert result.interval == "15"
+    assert result.message == "Price 182.35"
+
+
+def test_tickers_with_special_characters():
+    assert parse_alert("NYSE:BRK.B tf=D Price 410").symbol == "NYSE:BRK.B"
+    assert parse_alert("CME_MINI:ES1! tf=60 Price 5000").symbol == "CME_MINI:ES1!"
+    assert parse_alert("BINANCE:BTCUSDT.P tf=5 Price 65000").symbol == "BINANCE:BTCUSDT.P"
+
+
+def test_trailing_period_not_part_of_symbol():
+    result = parse_alert("Breakout on NASDAQ:AAPL.")
+    assert result.symbol == "NASDAQ:AAPL"
+
+
+def test_time_is_not_a_symbol():
+    result = parse_alert("AAPL, breakout at 12:30")
+    assert result.symbol != "12:30"
+    assert result.ticker == "AAPL"
+
+
+def test_lowercase_explicit_symbol_removed_from_message():
+    result = parse_alert("nasdaq:aapl breaking out")
+    assert result.symbol == "NASDAQ:AAPL"
+    assert result.message == "breaking out"
