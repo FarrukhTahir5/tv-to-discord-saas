@@ -219,7 +219,7 @@ async def _process_alert(alert: AlertLog):
     if parsed.symbol:
         screenshot = await take_screenshot(
             parsed.symbol,
-            interval=parsed.interval,
+            interval=parsed.interval or "D",  # daily unless the user chose otherwise
             layout_id=user.chart_layout_id,
         )
         if screenshot:

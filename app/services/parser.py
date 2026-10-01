@@ -37,13 +37,11 @@ INTERVAL_TAG_REGEX = re.compile(
     re.IGNORECASE,
 )
 
-# Intervals accepted from the leading token of "TICKER, 1D Crossing ..." messages
-# (TradingView's default alert format). Bare numbers are limited to common
-# minute values so prices like "900" aren't mistaken for a timeframe.
-COMMON_MINUTES = {"1", "2", "3", "5", "10", "15", "30", "45", "60", "120", "180", "240"}
+# Timeframe setting value meaning "use the tf= tag from the alert"
+MATCH_ALERT_INTERVAL = "alert"
 
 
-def normalize_interval(token: str, strict: bool = False) -> Optional[str]:
+def normalize_interval(token: str) -> Optional[str]:
     """
     Convert a timeframe token to TradingView's URL interval format.
     "15" / "15m" -> "15", "1h" -> "60", "4H" -> "240", "1D"/"D" -> "D",
@@ -61,8 +59,6 @@ def normalize_interval(token: str, strict: bool = False) -> Optional[str]:
 
     if unit == "":
         if not num or n > 1440:
-            return None
-        if strict and num not in COMMON_MINUTES:
             return None
         return str(n)
     if unit == "m":
@@ -106,15 +102,16 @@ def parse_alert(
     tag_interval, raw_text = extract_interval(raw_text)
     parsed = _parse_symbol(raw_text, default_exchange, default_symbol)
 
-    if tag_interval:
+    # The user's timeframe setting decides:
+    #   None    -> daily (the worker's default)
+    #   "alert" -> the alert's own chart timeframe from a tf= tag, else daily
+    #   "240"…  -> always that timeframe
+    if default_interval == MATCH_ALERT_INTERVAL:
         parsed.interval = tag_interval
-    elif parsed.source == "comma":
-        # "CHEF, 1D Crossing Horizontal Ray" -> leading token of the message
-        first = parsed.message.split(None, 1)[0] if parsed.message else ""
-        parsed.interval = normalize_interval(first, strict=True)
-
-    if not parsed.interval and default_interval:
+    elif default_interval:
         parsed.interval = normalize_interval(default_interval)
+    else:
+        parsed.interval = None
     return parsed
 
 

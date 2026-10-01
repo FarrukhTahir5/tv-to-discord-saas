@@ -323,15 +323,15 @@
                     <p class="text-[11px] text-gray-500 mt-1">Screenshots will use this layout's indicators, drawings and style. Turn on sharing for the layout in TradingView so it can be opened without your login.</p>
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-400 mb-1">Default Timeframe</label>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Chart Timeframe</label>
                     <select name="default_interval"
                         class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm focus:border-blue-500 outline-none transition">
-                        <option value="" {% if not user.default_interval %}selected{% endif %}>TradingView default</option>
+                        <option value="" {% if not user.default_interval %}selected{% endif %}>1 day (default)</option>
                         {% for value, label in interval_choices.items() %}
                         <option value="{{ value }}" {% if user.default_interval==value %}selected{% endif %}>{{ label }}</option>
                         {% endfor %}
                     </select>
-                    <p class="text-[11px] text-gray-500 mt-1">Used when the alert doesn't say. To set it per alert, add <code class="text-gray-400">tf={{ '{{' }}interval{{ '}}' }}</code> to your TradingView alert message.</p>
+                    <p class="text-[11px] text-gray-500 mt-1">Every screenshot uses this timeframe. "Match the alert's chart" needs <code class="text-gray-400">tf={{ '{{' }}interval{{ '}}' }}</code> in the alert message (the copy-paste message includes it).</p>
                 </div>
                 <button type="submit"
                     class="w-full py-2.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl text-sm font-semibold transition">

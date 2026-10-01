@@ -50,57 +50,47 @@ def test_whitespace_cleanup():
 
 # ---- Timeframe / interval -------------------------------------------
 
-def test_interval_from_tradingview_default_format():
-    result = parse_alert("CHEF, 1D Crossing Horizontal Ray")
-    assert result.interval == "D"
-    assert result.message == "1D Crossing Horizontal Ray"
+def test_message_text_does_not_change_timeframe():
+    # Timeframe words in the user's own text are ignored (charts stay daily)
+    assert parse_alert("CHEF, 1D Crossing Horizontal Ray").interval is None
+    assert parse_alert("BTCUSDT, 15 Crossing Up EMA").interval is None
+    assert parse_alert("NVDA, 900 breakout").interval is None
 
 
-def test_interval_minutes_in_comma_format():
-    result = parse_alert("BTCUSDT, 15 Crossing Up EMA")
-    assert result.interval == "15"
-
-
-def test_price_after_comma_is_not_interval():
-    result = parse_alert("NVDA, 900 breakout")
-    assert result.interval is None
-
-
-def test_interval_tag_is_parsed_and_removed():
+def test_interval_tag_is_removed_from_message():
     result = parse_alert("NASDAQ:AAPL broke out tf=4h")
     assert result.symbol == "NASDAQ:AAPL"
-    assert result.interval == "240"
     assert "tf" not in result.message.lower()
 
 
 def test_interval_tag_does_not_become_symbol():
     result = parse_alert("TF:15 BTCUSDT crossing up")
-    assert result.interval == "15"
     assert result.ticker == "BTCUSDT"
 
 
-def test_interval_tag_with_tradingview_placeholder_values():
-    assert parse_alert("AAPL breakout interval=60").interval == "60"
-    assert parse_alert("AAPL breakout interval=1W").interval == "W"
-    assert parse_alert("AAPL breakout interval=1M").interval == "M"
-    assert parse_alert("AAPL breakout interval=1m").interval == "1"
+def test_default_is_daily_even_with_tag():
+    # No setting -> None, which the worker turns into the daily chart
+    assert parse_alert("AAPL breakout tf=15").interval is None
 
 
-def test_default_interval_fallback():
-    result = parse_alert("AAPL breakout", default_interval="240")
-    assert result.interval == "240"
+def test_match_alert_setting_uses_tag():
+    assert parse_alert("AAPL breakout interval=60", default_interval="alert").interval == "60"
+    assert parse_alert("AAPL breakout interval=1W", default_interval="alert").interval == "W"
+    assert parse_alert("AAPL breakout interval=1M", default_interval="alert").interval == "M"
+    assert parse_alert("AAPL breakout tf=4h", default_interval="alert").interval == "240"
+    assert parse_alert("AAPL breakout", default_interval="alert").interval is None
 
 
-def test_alert_interval_overrides_default():
-    result = parse_alert("AAPL breakout tf=5", default_interval="D")
-    assert result.interval == "5"
+def test_fixed_setting_always_wins():
+    assert parse_alert("AAPL breakout tf=5", default_interval="240").interval == "240"
+    assert parse_alert("AAPL breakout", default_interval="W").interval == "W"
 
 
 # ---- Recommended copy-paste message ---------------------------------
 # {{exchange}}:{{ticker}} tf={{interval}} Price {{close}}
 
 def test_recommended_message_format():
-    result = parse_alert("NASDAQ:AAPL tf=15 Price 182.35")
+    result = parse_alert("NASDAQ:AAPL tf=15 Price 182.35", default_interval="alert")
     assert result.symbol == "NASDAQ:AAPL"
     assert result.interval == "15"
     assert result.message == "Price 182.35"

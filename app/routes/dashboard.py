@@ -12,6 +12,7 @@ from app.db import get_db
 from app.models import AlertLog, User, UserWebhook
 from app.routes.webhook import make_idempotency_key
 from app.services.queue_svc import notify_worker
+from app.services.parser import MATCH_ALERT_INTERVAL
 from app.services.auth import get_current_user
 
 from app.config import settings
@@ -33,6 +34,7 @@ TEST_ALERT_TEXT = "BINANCE:BTCUSDT tf=60 ChartAlert test alert: your setup works
 
 # TradingView interval value -> label shown in the settings dropdown
 INTERVAL_CHOICES = {
+    MATCH_ALERT_INTERVAL: "Match the alert's chart",
     "1": "1 minute", "5": "5 minutes", "15": "15 minutes", "30": "30 minutes",
     "60": "1 hour", "120": "2 hours", "240": "4 hours",
     "D": "1 day", "W": "1 week", "M": "1 month",
