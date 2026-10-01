@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import RedirectResponse
+from fastapi.responses import PlainTextResponse, RedirectResponse, Response
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
@@ -124,6 +124,68 @@ async def pricing_page(request: Request):
         "pricing.html",
         {"request": request, "user": user, "app_name": settings.app_name, "title": "Pricing"},
     )
+
+
+@app.get("/tradingview-alerts-to-discord")
+async def tradingview_discord_page(request: Request):
+    """SEO landing page for "TradingView alerts to Discord" searches."""
+    user = await get_current_user_optional(request)
+    name = settings.app_name
+    faqs = [
+        ("Do I need a paid TradingView plan?",
+         "Yes. TradingView only allows webhook notifications on its paid plans, and webhooks are how "
+         f"alerts reach {name}. Discord itself is free."),
+        ("Do I have to change how I write my alerts?",
+         "No. Messages like \"AAPL, 1D Crossing horizontal ray\" or \"NASDAQ:AAPL breakout\" are read "
+         "automatically. For the most reliable results you can paste the one-line message from your dashboard, "
+         "which lets TradingView fill in the exact symbol."),
+        ("Which chart timeframe is shown?",
+         "The daily chart by default. You can pick a fixed timeframe in your settings, or have each screenshot "
+         "match the chart the alert came from."),
+        ("Can the screenshot show my own indicators?",
+         "Yes. Turn on sharing for a TradingView chart layout and paste its link in your settings. Screenshots "
+         "then use that layout's indicators, drawings and style."),
+        ("How fast do alerts arrive in Discord?",
+         "Usually within 20 seconds of TradingView firing the alert, including the time to load and capture the chart."),
+        ("Can I post to more than one Discord channel?",
+         "Yes. Add as many Discord webhooks as you need and every alert is posted to all of them."),
+        ("Is there a free plan?",
+         f"Yes. The free plan includes {settings.free_alerts_per_day} "
+         f"alert{'' if settings.free_alerts_per_day == 1 else 's'} a day, with no card required."),
+    ]
+    return templates.TemplateResponse(
+        "tradingview_discord.html",
+        {
+            "request": request,
+            "user": user,
+            "app_name": name,
+            "app_url": settings.app_url,
+            "faqs": faqs,
+        },
+    )
+
+
+@app.get("/robots.txt", response_class=PlainTextResponse)
+async def robots_txt():
+    return (
+        "User-agent: *\n"
+        "Disallow: /dashboard\n"
+        "Disallow: /admin\n"
+        "Disallow: /billing\n"
+        "Disallow: /webhook\n"
+        f"Sitemap: {settings.app_url}/sitemap.xml\n"
+    )
+
+
+@app.get("/sitemap.xml")
+async def sitemap_xml():
+    pages = ["/", "/tradingview-alerts-to-discord", "/pricing", "/register", "/terms"]
+    urls = "".join(f"<url><loc>{settings.app_url}{p}</loc></url>" for p in pages)
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        f'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>'
+    )
+    return Response(content=xml, media_type="application/xml")
 
 
 @app.get("/terms")

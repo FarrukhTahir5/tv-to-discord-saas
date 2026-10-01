@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
   <title>{% block title %}{{ title | default('') }}{% endblock %} | {{ app_name | default('ChartAlert') }}</title>
+  {% block head %}{% endblock %}
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link
@@ -59,6 +60,8 @@
     <div class="max-w-5xl mx-auto px-6 flex flex-col items-center gap-3">
       <div class="flex items-center gap-4 text-sm text-gray-500">
         <a href="/pricing" class="hover:text-gray-300 transition">Pricing</a>
+        <span class="text-gray-700">·</span>
+        <a href="/tradingview-alerts-to-discord" class="hover:text-gray-300 transition">TradingView alerts to Discord</a>
         <span class="text-gray-700">·</span>
         <a href="/terms" class="hover:text-gray-300 transition">Terms & Conditions</a>
       </div>

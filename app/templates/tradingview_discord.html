@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title %}TradingView Alerts to Discord with Chart Screenshots{% endblock %}
+
+{% block head %}
+<meta name="description" content="Send TradingView alerts to Discord with a live chart screenshot on every alert. No JSON, no code. Works with the alert messages you already use. Set up in 2 minutes.">
+<link rel="canonical" href="{{ app_url }}/tradingview-alerts-to-discord">
+<meta property="og:type" content="website">
+<meta property="og:title" content="TradingView Alerts to Discord, With the Chart">
+<meta property="og:description" content="Every TradingView alert posted to your Discord with a live chart screenshot. Set up in 2 minutes.">
+<meta property="og:url" content="{{ app_url }}/tradingview-alerts-to-discord">
+<meta property="og:image" content="{{ app_url }}/static/example-chart.png">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {% for q, a in faqs %}
+    {
+      "@type": "Question",
+      "name": {{ q | tojson }},
+      "acceptedAnswer": { "@type": "Answer", "text": {{ a | striptags | tojson }} }
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<article class="max-w-3xl mx-auto">
+
+    <!-- Hero -->
+    <header class="text-center pt-6 pb-10">
+        <h1 class="text-4xl md:text-5xl font-extrabold leading-tight mb-5">
+            Send TradingView alerts to Discord, <span class="bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">with the chart</span>
+        </h1>
+        <p class="text-lg text-gray-400 max-w-2xl mx-auto mb-8">
+            TradingView can send alerts to Discord, but only as plain text. {{ app_name }} posts every alert with a
+            <strong class="text-gray-200">live chart screenshot</strong>, so you and your members see the setup, not just a ticker.
+        </p>
+        <a href="/register" class="inline-block px-7 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold transition">
+            Start free, set up in 2 minutes →
+        </a>
+        <p class="text-xs text-gray-500 mt-3">Free plan included. No card required.</p>
+    </header>
+
+    <!-- What it looks like: a Discord post mock-up -->
+    <section aria-label="Example Discord alert" class="mb-16">
+        <div class="bg-[#313338] rounded-xl p-4 md:p-5 border border-gray-800 shadow-2xl">
+            <div class="flex gap-3">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-emerald-500 flex-shrink-0 flex items-center justify-center font-bold">⚡</div>
+                <div class="min-w-0 flex-1">
+                    <div class="flex items-baseline gap-2 mb-1">
+                        <span class="font-semibold text-white">Trade Alerts</span>
+                        <span class="text-[10px] px-1 rounded bg-[#5865F2] text-white font-semibold">APP</span>
+                        <span class="text-xs text-gray-400">Today at 9:31 AM</span>
+                    </div>
+                    <p class="text-gray-200 text-sm mb-2">1D Crossing horizontal ray</p>
+                    <div class="border-l-4 border-[#5865F2] bg-[#2b2d31] rounded p-3 max-w-xl">
+                        <div class="font-semibold text-white text-sm mb-2">FLR</div>
+                        <img src="/static/example-chart.png" alt="Daily chart of Fluor (FLR) posted to Discord by a TradingView alert"
+                            class="rounded w-full" loading="lazy" width="2271" height="1499">
+                        <div class="text-[11px] text-gray-400 mt-2">Sent via {{ app_name }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <p class="text-center text-xs text-gray-500 mt-3">A real alert: the TradingView message on top, the live daily chart underneath.</p>
+    </section>
+
+    <!-- Problem -->
+    <section class="mb-14">
+        <h2 class="text-2xl font-bold mb-4">Why TradingView's built-in Discord alerts fall short</h2>
+        <p class="text-gray-300 mb-4">
+            TradingView alerts can call a webhook, and Discord channels have webhook URLs. Connecting them directly works, with two catches:
+        </p>
+        <ul class="space-y-3 text-gray-300">
+            <li class="flex gap-3"><span class="text-red-400 font-bold">✗</span><span><strong class="text-white">Text only.</strong> Discord gets a line like "AAPL crossing 182". Nobody can see the chart without opening TradingView.</span></li>
+            <li class="flex gap-3"><span class="text-red-400 font-bold">✗</span><span><strong class="text-white">You have to write JSON.</strong> Discord only accepts messages formatted as <code class="text-sm bg-gray-800 px-1.5 py-0.5 rounded">{"content": "..."}</code>, so every alert message needs rewriting, and one typo means the alert silently fails.</span></li>
+        </ul>
+        <p class="text-gray-300 mt-4">
+            {{ app_name }} sits in between: TradingView sends the alert to {{ app_name }}, which opens the chart, takes a screenshot, and posts both to Discord.
+        </p>
+    </section>
+
+    <!-- How to -->
+    <section class="mb-14">
+        <h2 class="text-2xl font-bold mb-4">How to set it up (about 2 minutes)</h2>
+        <ol class="space-y-5">
+            <li class="flex gap-4">
+                <span class="flex-shrink-0 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center font-bold">1</span>
+                <div><h3 class="font-semibold text-white">Create a Discord webhook</h3>
+                    <p class="text-gray-400 text-sm">In Discord: Channel settings → Integrations → Webhooks → New Webhook → Copy Webhook URL. Paste it into your {{ app_name }} dashboard.</p></div>
+            </li>
+            <li class="flex gap-4">
+                <span class="flex-shrink-0 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center font-bold">2</span>
+                <div><h3 class="font-semibold text-white">Send a test</h3>
+                    <p class="text-gray-400 text-sm">Click "Send test alert" and a chart appears in your channel within seconds.</p></div>
+            </li>
+            <li class="flex gap-4">
+                <span class="flex-shrink-0 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center font-bold">3</span>
+                <div><h3 class="font-semibold text-white">Add the webhook to your TradingView alerts</h3>
+                    <p class="text-gray-400 text-sm">Create an alert (Alt + A). In Notifications, tick Webhook URL and paste your {{ app_name }} URL. Keep your usual message, or paste the one-line message from your dashboard.</p></div>
+            </li>
+        </ol>
+    </section>
+
+    <!-- Features -->
+    <section class="mb-14">
+        <h2 class="text-2xl font-bold mb-4">What you get</h2>
+        <div class="grid sm:grid-cols-2 gap-4">
+            <div class="bg-gray-900/50 border border-gray-800 rounded-xl p-5">
+                <h3 class="font-semibold text-white mb-1">Works with your existing alerts</h3>
+                <p class="text-sm text-gray-400">Messages like <code class="bg-gray-800 px-1 rounded">AAPL, 1D Crossing horizontal ray</code> or <code class="bg-gray-800 px-1 rounded">NASDAQ:AAPL breakout</code> are read automatically.</p>
+            </div>
+            <div class="bg-gray-900/50 border border-gray-800 rounded-xl p-5">
+                <h3 class="font-semibold text-white mb-1">Daily chart, or your timeframe</h3>
+                <p class="text-sm text-gray-400">Daily by default. Pick a fixed timeframe, or match the chart each alert came from.</p>
+            </div>
+            <div class="bg-gray-900/50 border border-gray-800 rounded-xl p-5">
+                <h3 class="font-semibold text-white mb-1">Your own indicators</h3>
+                <p class="text-sm text-gray-400">Link a shared TradingView layout and screenshots show your indicators and drawings.</p>
+            </div>
+            <div class="bg-gray-900/50 border border-gray-800 rounded-xl p-5">
+                <h3 class="font-semibold text-white mb-1">Several channels</h3>
+                <p class="text-sm text-gray-400">Post the same alert to multiple Discord channels or servers at once.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Who -->
+    <section class="mb-14">
+        <h2 class="text-2xl font-bold mb-4">Who it's for</h2>
+        <ul class="space-y-2 text-gray-300">
+            <li><strong class="text-white">Trading communities and educators</strong>, who post setups to members every day.</li>
+            <li><strong class="text-white">Signal providers</strong>, whose members act faster when they can see the chart.</li>
+            <li><strong class="text-white">Individual traders</strong>, who want a visual log of every alert on their phone.</li>
+        </ul>
+    </section>
+
+    <!-- FAQ -->
+    <section class="mb-14">
+        <h2 class="text-2xl font-bold mb-4">Frequently asked questions</h2>
+        <div class="space-y-3">
+            {% for q, a in faqs %}
+            <details class="bg-gray-900/50 border border-gray-800 rounded-xl p-5 group">
+                <summary class="font-semibold text-white cursor-pointer list-none flex justify-between gap-4">
+                    {{ q }}<span class="text-gray-500 group-open:rotate-45 transition">+</span>
+                </summary>
+                <p class="text-gray-400 text-sm mt-3">{{ a | safe }}</p>
+            </details>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="text-center bg-gradient-to-br from-blue-600/15 to-emerald-600/10 border border-blue-500/20 rounded-2xl p-8">
+        <h2 class="text-2xl font-bold mb-2">Put charts on your Discord alerts</h2>
+        <p class="text-gray-400 mb-6">Free to start. Takes about 2 minutes.</p>
+        <a href="/register" class="inline-block px-7 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold transition">Create free account →</a>
+    </section>
+</article>
+{% endblock %}
