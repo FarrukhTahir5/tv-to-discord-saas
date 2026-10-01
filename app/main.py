@@ -138,7 +138,7 @@ async def terms_page(request: Request):
 # ------------------------------------------------------------------
 # Health checks
 # ------------------------------------------------------------------
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 async def health():
     return {"status": "ok"}
 
@@ -152,7 +152,7 @@ async def health_playwright():
     }
 
 
-@app.get("/health/queue")
+@app.api_route("/health/queue", methods=["GET", "HEAD"])
 async def health_queue():
     """Report pending job count — useful for monitoring dashboards."""
     from app.db import AsyncSessionLocal
