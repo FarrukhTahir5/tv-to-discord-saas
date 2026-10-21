@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.db import get_db
 from app.models.user import User
+from app.models.outreach import OutreachLead
 from app.services.auth import hash_password, verify_password, create_access_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -27,6 +28,10 @@ async def register(request: Request, db: AsyncSession = Depends(get_db)):
 
     user = User(email=email, password_hash=hash_password(password))
     db.add(user)
+    # A community we emailed signed up: stop outreach and count it as a win
+    lead = (await db.execute(select(OutreachLead).where(OutreachLead.email == email))).scalar_one_or_none()
+    if lead:
+        lead.status = "signed_up"
     await db.commit()
     await db.refresh(user)
 

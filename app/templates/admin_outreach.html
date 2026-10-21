@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Outreach{% endblock %}
+{% block content %}
+
+<a href="/admin/" class="text-xs text-gray-500 hover:text-gray-300">← Admin</a>
+<div class="mt-2 mb-6 flex flex-wrap items-center justify-between gap-3">
+    <h1 class="text-2xl font-extrabold text-white">Outreach</h1>
+    <div class="flex gap-2">
+        <form method="POST" action="/admin/outreach/test-email">
+            <button class="px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl text-xs font-semibold transition">Send test email to me</button>
+        </form>
+        {% if paused %}
+        <form method="POST" action="/admin/outreach/resume">
+            <button class="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-xs font-semibold transition">Resume sending</button>
+        </form>
+        {% else %}
+        <form method="POST" action="/admin/outreach/pause">
+            <button class="px-3 py-2 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 text-red-300 rounded-xl text-xs font-semibold transition">Pause sending</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+{% if msg %}
+<div class="mb-6 px-4 py-3 rounded-xl bg-blue-600/10 border border-blue-500/20 text-sm text-blue-300">{{ msg }}</div>
+{% endif %}
+
+<!-- Status line -->
+<div class="mb-6 px-4 py-3 rounded-xl border text-sm
+    {% if not configured %}bg-amber-500/10 border-amber-500/30 text-amber-300
+    {% elif paused %}bg-red-500/10 border-red-500/30 text-red-300
+    {% else %}bg-emerald-500/10 border-emerald-500/30 text-emerald-300{% endif %}">
+    {% if not configured %}
+    Not sending: set {{ missing | join(', ') }} in the VPS <code>.env</code>, then redeploy.
+    {% elif paused %}
+    Paused. No emails are being sent.
+    {% else %}
+    Running. {{ sent_today }} of {{ daily_limit }} sent today.
+    {% if in_window %}Sending now (weekdays 10am–5pm US Eastern).{% else %}Outside sending hours; next emails go out weekdays 10am–5pm US Eastern.{% endif %}
+    {% endif %}
+    {% if configured and 'OUTREACH_API_TOKEN' in missing %}<br>OUTREACH_API_TOKEN isn't set, so the daily research agent can't add new leads.{% endif %}
+</div>
+
+<!-- Funnel -->
+<div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+    <div class="bg-gray-900/50 border border-gray-800 p-5 rounded-2xl">
+        <div class="text-xs font-semibold text-gray-500 uppercase mb-1">Queued</div>
+        <div class="text-2xl font-bold text-white">{{ counts.get('new', 0) }}</div>
+    </div>
+    <div class="bg-gray-900/50 border border-gray-800 p-5 rounded-2xl">
+        <div class="text-xs font-semibold text-gray-500 uppercase mb-1">Contacted</div>
+        <div class="text-2xl font-bold text-white">{{ contacted }}</div>
+    </div>
+    <div class="bg-blue-600/10 border border-blue-500/20 p-5 rounded-2xl">
+        <div class="text-xs font-semibold text-blue-400 uppercase mb-1">Replied</div>
+        <div class="text-2xl font-bold text-blue-400">{{ counts.get('replied', 0) }}</div>
+        {% if contacted %}<div class="text-xs text-gray-500 mt-1">{{ (100 * counts.get('replied', 0) / contacted) | round | int }}% reply rate</div>{% endif %}
+    </div>
+    <div class="bg-emerald-600/10 border border-emerald-500/20 p-5 rounded-2xl">
+        <div class="text-xs font-semibold text-emerald-400 uppercase mb-1">Signed up</div>
+        <div class="text-2xl font-bold text-emerald-400">{{ counts.get('signed_up', 0) }}</div>
+    </div>
+    <div class="bg-gray-900/50 border border-gray-800 p-5 rounded-2xl">
+        <div class="text-xs font-semibold text-gray-500 uppercase mb-1">Unsub / bounced</div>
+        <div class="text-2xl font-bold text-gray-400">{{ counts.get('unsubscribed', 0) }} / {{ counts.get('bounced', 0) }}</div>
+    </div>
+</div>
+
+<!-- Leads -->
+<div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
+    <div class="flex flex-wrap gap-2 mb-4">
+        <a href="/admin/outreach" class="px-3 py-1.5 rounded-lg text-xs font-semibold border {% if not active_status %}bg-blue-600/20 border-blue-500/40 text-blue-300{% else %}border-gray-700 text-gray-400 hover:bg-gray-800{% endif %}">All</a>
+        {% for s in statuses %}
+        <a href="/admin/outreach?status={{ s }}" class="px-3 py-1.5 rounded-lg text-xs font-semibold border {% if active_status == s %}bg-blue-600/20 border-blue-500/40 text-blue-300{% else %}border-gray-700 text-gray-400 hover:bg-gray-800{% endif %}">
+            {{ s.replace('_', ' ') | capitalize }} ({{ counts.get(s, 0) }})
+        </a>
+        {% endfor %}
+    </div>
+
+    {% if leads %}
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+            <thead>
+                <tr class="text-gray-500 border-b border-gray-800">
+                    <th class="pb-3 px-2 font-semibold">Community</th>
+                    <th class="pb-3 px-2 font-semibold">Email</th>
+                    <th class="pb-3 px-2 font-semibold">Status</th>
+                    <th class="pb-3 px-2 font-semibold">Sent</th>
+                    <th class="pb-3 px-2 font-semibold">Personal line</th>
+                    <th class="pb-3 px-2 font-semibold">Mark as</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for l in leads %}
+                <tr class="border-b border-gray-800/50 align-top">
+                    <td class="py-3 px-2">
+                        {% if l.source_url %}<a href="{{ l.source_url }}" target="_blank" rel="noopener" class="text-gray-200 hover:text-blue-400">{{ l.community }}</a>{% else %}<span class="text-gray-200">{{ l.community }}</span>{% endif %}
+                        <div class="text-[11px] text-gray-500">{{ l.niche or '' }}</div>
+                    </td>
+                    <td class="py-3 px-2 text-xs text-gray-400 font-mono">{{ l.email }}</td>
+                    <td class="py-3 px-2 text-xs">
+                        <span class="{% if l.status == 'replied' %}text-blue-400{% elif l.status == 'signed_up' %}text-emerald-400{% elif l.status in ('bounced', 'unsubscribed', 'skipped') %}text-gray-500{% else %}text-gray-300{% endif %}">{{ l.status.replace('_', ' ') }}</span>
+                        {% if l.last_error %}<div class="text-[11px] text-red-400 max-w-[180px] truncate" title="{{ l.last_error }}">{{ l.last_error }}</div>{% endif %}
+                    </td>
+                    <td class="py-3 px-2 text-xs text-gray-500 whitespace-nowrap">{{ l.sent_at.strftime('%b %d') if l.sent_at else '—' }}{% if l.followed_up_at %} · f/u {{ l.followed_up_at.strftime('%b %d') }}{% endif %}</td>
+                    <td class="py-3 px-2 text-xs text-gray-400 max-w-xs">{{ l.hook or '' }}</td>
+                    <td class="py-3 px-2">
+                        <form method="POST" action="/admin/outreach/leads/{{ l.id }}/status" class="flex gap-1">
+                            <select name="status" class="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs">
+                                {% for s in statuses %}<option value="{{ s }}" {% if s == l.status %}selected{% endif %}>{{ s.replace('_', ' ') }}</option>{% endfor %}
+                            </select>
+                            <button class="px-2 py-1 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-xs">Save</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-sm text-gray-500">No leads yet. The daily research agent adds them each morning.</p>
+    {% endif %}
+</div>
+
+{% endblock %}

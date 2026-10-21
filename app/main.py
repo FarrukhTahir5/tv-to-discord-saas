@@ -28,11 +28,17 @@ async def lifespan(app: FastAPI):
         await start_browser()
         await start_worker()
 
+        from app.services.outreach import start_outreach
+        start_outreach()
+
     yield  # --- App is running ---
 
     if run_mode in ("worker", "both"):
         from app.services.queue_svc import stop_worker
         from app.services.screenshot import stop_browser
+        from app.services.outreach import stop_outreach
+
+        await stop_outreach()
 
         await stop_worker()
         await stop_browser()
@@ -79,6 +85,8 @@ app.include_router(webhook_router)
 app.include_router(dashboard_router)
 app.include_router(billing_router)
 app.include_router(admin_router)
+from app.routes.outreach import router as outreach_router  # noqa: E402
+app.include_router(outreach_router)
 
 # ------------------------------------------------------------------
 # Page routes (landing, login, register)

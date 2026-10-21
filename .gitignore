@@ -11,3 +11,6 @@ venv/
 .pytest_cache/
 htmlcov/
 .coverage
+
+# Private marketing material (lead lists with contact details); the repo is public
+marketing/
