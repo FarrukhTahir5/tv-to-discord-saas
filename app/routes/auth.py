@@ -1,7 +1,10 @@
+import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from app.config import settings
 from app.db import get_db
 from app.models.user import User
 from app.models.outreach import OutreachLead
@@ -26,7 +29,12 @@ async def register(request: Request, db: AsyncSession = Depends(get_db)):
     if existing.scalar_one_or_none():
         raise HTTPException(400, "Email already registered")
 
-    user = User(email=email, password_hash=hash_password(password))
+    user = User(
+        email=email,
+        password_hash=hash_password(password),
+        # Full Pro for the first week, no card needed
+        trial_expires_at=datetime.datetime.utcnow() + datetime.timedelta(days=settings.trial_days),
+    )
     db.add(user)
     # A community we emailed signed up: stop outreach and count it as a win
     lead = (await db.execute(select(OutreachLead).where(OutreachLead.email == email))).scalar_one_or_none()

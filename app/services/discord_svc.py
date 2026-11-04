@@ -5,6 +5,8 @@ import json
 import logging
 from dataclasses import dataclass
 
+from app.config import settings
+
 logger = logging.getLogger(__name__)
 
 # Limit concurrent Discord posts to avoid rate limits
@@ -24,13 +26,14 @@ async def post_to_discord(
     message: str,
     screenshot_bytes: bytes | None,
     app_name: str = "ChartAlert",
+    branded: bool = True,
 ) -> DiscordResult:
     async with _discord_semaphore:
         async with aiohttp.ClientSession() as session:
             try:
                 return await _do_post(
                     session, webhook_url, symbol, message,
-                    screenshot_bytes, app_name,
+                    screenshot_bytes, app_name, branded,
                 )
             except Exception as e:
                 logger.error("Discord post exception: %s", e)
@@ -44,18 +47,21 @@ async def _do_post(
     message: str,
     screenshot_bytes: bytes | None,
     app_name: str,
+    branded: bool = True,
 ) -> DiscordResult:
     # Message text appears ABOVE the embed as regular content
     content = message.strip()
     if not screenshot_bytes:
         content += "\n⚠️ *(Chart preview unavailable)*"
 
-    # Embed is just the chart image + footer
+    # Embed is the chart image. Free plan posts carry a clickable credit;
+    # Pro posts are unbranded.
     embed = {
         "title": symbol or "Alert",
         "color": 0x5865F2,  # Discord blurple
-        "footer": {"text": f"Sent via {app_name}"},
     }
+    if branded:
+        embed["description"] = f"via [{app_name}]({settings.app_url}/tradingview-alerts-to-discord)"
 
     if screenshot_bytes:
         embed["image"] = {"url": "attachment://chart.png"}

@@ -3,10 +3,9 @@ import uuid
 import datetime
 
 from fastapi import APIRouter, Request, Depends, HTTPException
-from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from app.db import get_db
 from app.models import AlertLog, User, UserWebhook
@@ -16,8 +15,8 @@ from app.services.parser import MATCH_ALERT_INTERVAL
 from app.services.auth import get_current_user
 
 from app.config import settings
+from app.templates_config import templates
 
-templates = Jinja2Templates(directory="app/templates")
 router = APIRouter(tags=["dashboard"])
 
 DISCORD_WEBHOOK_PATTERN = re.compile(
@@ -31,6 +30,13 @@ LAYOUT_ID_PATTERN = re.compile(r"^[A-Za-z0-9]{6,12}$")
 ALERT_MESSAGE_TEMPLATE = "{{exchange}}:{{ticker}} tf={{interval}} Price {{close}}"
 
 TEST_ALERT_TEXT = "BINANCE:BTCUSDT tf=60 ChartAlert test alert: your setup works!"
+
+# Messages shown after a redirect (?notice=...)
+NOTICES = {
+    "channels": f"The Free plan includes {settings.free_max_channels} Discord channel. "
+                "Upgrade to Pro to post to more channels.",
+    "pro_chart": "Custom timeframes and chart layouts are Pro features. Your other settings were saved.",
+}
 
 # TradingView interval value -> label shown in the settings dropdown
 INTERVAL_CHOICES = {
@@ -103,6 +109,8 @@ async def dashboard(
             "alert_message": ALERT_MESSAGE_TEMPLATE,
             "setup": setup,
             "test_sent": request.query_params.get("test") == "sent",
+            "notice": NOTICES.get(request.query_params.get("notice", "")),
+            "is_pro": user.effective_plan == "pro",
             "title": "Dashboard",
         },
     )
@@ -147,11 +155,19 @@ async def update_settings(
         db_user.discord_webhook_url = discord_url
     db_user.default_exchange = default_exchange
     db_user.default_symbol = default_symbol
-    db_user.chart_layout_id = chart_layout_id
-    db_user.default_interval = default_interval
+    # Timeframe and layout are Pro features; Free keeps whatever was saved
+    # (the worker ignores it) so nothing is lost if they upgrade later
+    notice = ""
+    if db_user.effective_plan == "pro":
+        db_user.chart_layout_id = chart_layout_id
+        db_user.default_interval = default_interval
+    elif ("chart_layout" in form or "default_interval" in form) and (
+        chart_layout_id != db_user.chart_layout_id or default_interval != db_user.default_interval
+    ):
+        notice = "?notice=pro_chart"
     await db.commit()
 
-    return RedirectResponse(url="/dashboard", status_code=303)
+    return RedirectResponse(url=f"/dashboard{notice}", status_code=303)
 
 
 @router.post("/dashboard/rotate-token")
@@ -179,6 +195,13 @@ async def add_webhook(
 
     if not url or not DISCORD_WEBHOOK_PATTERN.match(url):
         raise HTTPException(400, "Invalid Discord webhook URL")
+
+    if user.effective_plan != "pro":
+        count = (await db.execute(
+            select(func.count(UserWebhook.id)).where(UserWebhook.user_id == user.id)
+        )).scalar() + (1 if user.discord_webhook_url else 0)
+        if count >= settings.free_max_channels:
+            return RedirectResponse(url="/dashboard?notice=channels", status_code=303)
 
     new_wh = UserWebhook(user_id=user.id, name=name, url=url)
     db.add(new_wh)

@@ -27,7 +27,7 @@
             </div>
         </button>
         <span id="label-yearly" class="text-sm font-medium text-gray-500">Yearly
-            <span class="text-emerald-400 text-xs font-bold ml-1">Save 20%</span>
+            <span class="text-emerald-400 text-xs font-bold ml-1">Save {{ plans.yearly_saving_pct }}%</span>
         </span>
     </div>
 
@@ -39,14 +39,14 @@
             <div class="text-4xl font-extrabold mb-1">$0</div>
             <div class="text-sm text-gray-500 mb-6">forever</div>
             <ul class="space-y-3 text-sm text-gray-300 flex-1">
-                <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> 1 alert per day</li>
-                <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Chart screenshots</li>
-                <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Discord rich embeds</li>
-                <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Unique webhook URL</li>
+                <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> {{ plans.free_alerts }} alerts a day</li>
+                <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> {{ plans.free_channels }} Discord channel</li>
+                <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Daily chart screenshots</li>
+                <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Works with your existing alerts</li>
                 <li class="flex items-center gap-2"><span class="text-gray-600">✗</span> <span
-                        class="text-gray-500">Priority processing</span></li>
+                        class="text-gray-500">Custom timeframe and chart layout</span></li>
                 <li class="flex items-center gap-2"><span class="text-gray-600">✗</span> <span
-                        class="text-gray-500">Email support</span></li>
+                        class="text-gray-500">Small "via ChartAlert" credit on posts</span></li>
             </ul>
             <a href="/register"
                 class="block mt-8 text-center py-3 border border-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-800 transition">
@@ -62,16 +62,16 @@
             </div>
             <div class="text-sm font-semibold text-blue-400 uppercase tracking-wider mb-2">Pro</div>
             <div class="flex items-baseline gap-1">
-                <span id="pro-price" class="text-4xl font-extrabold">$50</span>
+                <span id="pro-price" class="text-4xl font-extrabold">${{ plans.pro_monthly }}</span>
                 <span id="pro-period" class="text-lg font-normal text-gray-500">/mo</span>
             </div>
-            <div id="pro-billing-note" class="text-sm text-gray-500 mb-6">billed monthly</div>
+            <div id="pro-billing-note" class="text-sm text-gray-500 mb-6">billed monthly · {{ plans.trial_days }}-day free trial</div>
             <ul class="space-y-3 text-sm text-gray-300 flex-1">
-                <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> 500 alerts per day</li>
-                <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> Chart screenshots</li>
-                <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> Discord rich embeds</li>
-                <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> Unique webhook URL</li>
-                <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> Priority processing</li>
+                <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> {{ plans.pro_alerts }} alerts a day</li>
+                <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> Unlimited Discord channels</li>
+                <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> Any timeframe, or match each alert's chart</li>
+                <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> Your own TradingView layout and indicators</li>
+                <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> No ChartAlert branding on posts</li>
                 <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> Email support</li>
             </ul>
             <form action="/billing/create-checkout" method="POST" id="pro-form">
@@ -151,7 +151,18 @@
             </summary>
             <p class="text-sm text-gray-400 mt-3">
                 Alerts beyond your daily limit are dropped and won't be forwarded to Discord. Your counter resets at
-                midnight UTC each day. Upgrade to Pro for 500 alerts/day.
+                midnight UTC each day. Upgrade to Pro for {{ plans.pro_alerts }} alerts a day.
+            </p>
+        </details>
+
+        <details class="group bg-gray-900/50 border border-gray-800 rounded-xl px-6 py-4 cursor-pointer">
+            <summary class="flex justify-between items-center font-semibold text-sm">
+                Is there a free trial?
+                <span class="text-gray-500 group-open:rotate-45 transition-transform text-lg">+</span>
+            </summary>
+            <p class="text-sm text-gray-400 mt-3">
+                Yes. Every new account gets {{ plans.trial_days }} days of full Pro, no card required. After that you
+                move to the Free plan unless you subscribe.
             </p>
         </details>
     </div>
@@ -185,9 +196,9 @@
         if (isYearly) {
             dot.style.transform = 'translateX(28px)';
             toggle.classList.replace('bg-gray-700', 'bg-blue-600');
-            price.textContent = '$40';
+            price.textContent = '${{ plans.pro_yearly_monthly }}';
             period.textContent = '/mo';
-            note.textContent = 'billed $480/year';
+            note.textContent = 'billed ${{ plans.pro_yearly_total }}/year · {{ plans.trial_days }}-day free trial';
             labelM.classList.replace('text-white', 'text-gray-500');
             labelM.classList.replace('font-semibold', 'font-medium');
             labelY.classList.replace('text-gray-500', 'text-white');
@@ -196,9 +207,9 @@
         } else {
             dot.style.transform = 'translateX(0)';
             toggle.classList.replace('bg-blue-600', 'bg-gray-700');
-            price.textContent = '$50';
+            price.textContent = '${{ plans.pro_monthly }}';
             period.textContent = '/mo';
-            note.textContent = 'billed monthly';
+            note.textContent = 'billed monthly · {{ plans.trial_days }}-day free trial';
             labelM.classList.replace('text-gray-500', 'text-white');
             labelM.classList.replace('font-medium', 'font-semibold');
             labelY.classList.replace('text-white', 'text-gray-500');

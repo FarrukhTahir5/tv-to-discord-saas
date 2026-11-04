@@ -157,9 +157,10 @@ async def tradingview_discord_page(request: Request):
          "Usually within 20 seconds of TradingView firing the alert, including the time to load and capture the chart."),
         ("Can I post to more than one Discord channel?",
          "Yes. Add as many Discord webhooks as you need and every alert is posted to all of them."),
-        ("Is there a free plan?",
-         f"Yes. The free plan includes {settings.free_alerts_per_day} "
-         f"alert{'' if settings.free_alerts_per_day == 1 else 's'} a day, with no card required."),
+        ("How much does it cost?",
+         f"Every account starts with a {settings.trial_days}-day Pro trial, no card required. After that the Free "
+         f"plan includes {settings.free_alerts_per_day} alerts a day on one Discord channel, and Pro is "
+         f"USD {settings.pro_price_monthly}/month (USD {settings.pro_price_yearly_per_month}/month billed yearly)."),
     ]
     return templates.TemplateResponse(
         "tradingview_discord.html",

@@ -20,8 +20,13 @@ class Settings(BaseSettings):
     lemonsqueezy_variant_id_yearly: str = ""
 
     # Plans
-    free_alerts_per_day: int = 10
+    free_alerts_per_day: int = 3
     pro_alerts_per_day: int = 500
+    free_max_channels: int = 1
+    trial_days: int = 7               # full Pro on signup, no card
+    # Shown on the site; the charged amount is set on the LemonSqueezy variants
+    pro_price_monthly: int = 19
+    pro_price_yearly_per_month: int = 15
 
     # Playwright
     playwright_timeout_ms: int = 20000

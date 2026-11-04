@@ -253,6 +253,8 @@ async def _process_alert(alert: AlertLog):
         parsed_message=parsed.message,
     )
 
+    is_pro = user.effective_plan == "pro"
+
     # --- Screenshot ---
     screenshot = None
     if parsed.symbol:
@@ -260,8 +262,9 @@ async def _process_alert(alert: AlertLog):
             screenshot = await asyncio.wait_for(
                 take_screenshot(
                     parsed.symbol,
-                    interval=parsed.interval or "D",  # daily unless the user chose otherwise
-                    layout_id=user.chart_layout_id,
+                    # Daily unless a Pro user chose otherwise; layouts are Pro-only
+                    interval=(parsed.interval if is_pro else None) or "D",
+                    layout_id=user.chart_layout_id if is_pro else None,
                 ),
                 timeout=SCREENSHOT_TIMEOUT_S,
             )
@@ -299,6 +302,7 @@ async def _process_alert(alert: AlertLog):
             message=parsed.message,
             screenshot_bytes=screenshot,
             app_name=settings.app_name,
+            branded=not is_pro,
         )
         results.append(res)
 

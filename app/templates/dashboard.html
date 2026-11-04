@@ -22,6 +22,13 @@
 {% endif %}
 {% endmacro %}
 
+{% if notice %}
+<div class="mb-6 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-sm text-amber-300 flex flex-wrap items-center justify-between gap-3">
+    <span>{{ notice }}</span>
+    <a href="/pricing" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-semibold text-white">See Pro</a>
+</div>
+{% endif %}
+
 {% if test_sent %}
 <div class="mb-6 px-4 py-3 rounded-xl bg-blue-600/10 border border-blue-500/20 text-sm text-blue-300">
     Test alert sent. A BTC chart should appear in your Discord channel within about 15 seconds. This page refreshes on its own.
@@ -159,16 +166,18 @@
                 <div class="absolute top-0 right-0 p-3 opacity-10">
                     <svg class="w-16 h-16 text-blue-500" fill="currentColor" viewBox="0 0 20 20"><path d="M11 3a1 1 0 10-2 0v1a1 1 0 102 0V3zM15.657 5.757a1 1 0 00-1.414-1.414l-.707.707a1 1 0 001.414 1.414l.707-.707zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zM5.05 6.464A1 1 0 106.464 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zM5 10a1 1 0 01-1 1H3a1 1 0 110-2h1a1 1 0 011 1zM8 16v-1h4v1a2 2 0 11-4 0zM12 14c.015-.34.208-.646.477-.859C13.487 12.311 14 11.231 14 10a4 4 0 10-8 0c0 1.231.513 2.311 1.523 3.141.269.213.462.519.477.859h4z"></path></svg>
                 </div>
-                <h3 class="text-sm font-bold text-white mb-2">Unlock Unlimited Potential</h3>
+                <h3 class="text-sm font-bold text-white mb-2">Pro: ${{ plans.pro_monthly }}/month</h3>
                 <ul class="text-xs text-gray-400 space-y-2 mb-6">
-                    <li class="flex items-center gap-2"><span class="text-blue-400">⚡</span> 500 alerts/day instead of 10</li>
-                    <li class="flex items-center gap-2"><span class="text-purple-400">🚀</span> Priority processing speed</li>
-                    <li class="flex items-center gap-2"><span class="text-blue-400">💎</span> Dedicated email support</li>
+                    <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> {{ plans.pro_alerts }} alerts a day instead of {{ plans.free_alerts }}</li>
+                    <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> Unlimited Discord channels</li>
+                    <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> Any timeframe and your own chart layout</li>
+                    <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> No "via ChartAlert" credit on your posts</li>
                 </ul>
                 <form method="POST" action="/billing/create-checkout">
+                    <input type="hidden" name="plan_type" value="monthly">
                     <button type="submit" 
                         class="w-full py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-600/20 transition-all transform hover:scale-[1.02] active:scale-[0.98]">
-                        Upgrade to Pro Now →
+                        Upgrade to Pro →
                     </button>
                 </form>
             </div>
@@ -195,7 +204,7 @@
                 {% elif user.subscription_status == 'cancelled' and user.subscription_ends_at %}
                 Pro until <strong>{{ user.subscription_ends_at.strftime('%b %d, %Y') }}</strong>. Resume any time before then to keep it.
                 {% elif user.on_trial and not user.ls_subscription_id %}
-                Your free trial ends <strong>{{ user.trial_expires_at.strftime('%b %d, %Y') }}</strong>. Subscribe to keep 500 alerts a day.
+                Your free trial ends <strong>{{ user.trial_expires_at.strftime('%b %d, %Y') }}</strong>. Subscribe for ${{ plans.pro_monthly }}/month to keep Pro features.
                 {% elif user.ls_subscription_id %}
                 {% if user.subscription_renews_at %}Renews <strong>{{ user.subscription_renews_at.strftime('%b %d, %Y') }}</strong>.{% else %}Your subscription is active.{% endif %}
                 {% else %}
@@ -315,20 +324,20 @@
                     </div>
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-400 mb-1">TradingView Chart Layout (optional)</label>
-                    <input type="text" name="chart_layout"
+                    <label class="block text-xs font-medium text-gray-400 mb-1">TradingView Chart Layout (optional){% if not is_pro %} <span class="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/30 font-bold">PRO</span>{% endif %}</label>
+                    <input type="text" name="chart_layout" {% if not is_pro %}disabled{% endif %}
                         value="{{ 'https://www.tradingview.com/chart/' ~ user.chart_layout_id ~ '/' if user.chart_layout_id else '' }}"
-                        class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm focus:border-blue-500 outline-none transition"
+                        class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm focus:border-blue-500 outline-none transition disabled:opacity-50"
                         placeholder="https://www.tradingview.com/chart/AbC123xY/">
                     <p class="text-[11px] text-gray-500 mt-1">Screenshots will use this layout's indicators, drawings and style. Turn on sharing for the layout in TradingView so it can be opened without your login.</p>
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-400 mb-1">Chart Timeframe</label>
-                    <select name="default_interval"
-                        class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm focus:border-blue-500 outline-none transition">
-                        <option value="" {% if not user.default_interval %}selected{% endif %}>1 day (default)</option>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Chart Timeframe{% if not is_pro %} <span class="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/30 font-bold">PRO</span>{% endif %}</label>
+                    <select name="default_interval" {% if not is_pro %}disabled{% endif %}
+                        class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm focus:border-blue-500 outline-none transition disabled:opacity-50">
+                        <option value="" {% if not user.default_interval or not is_pro %}selected{% endif %}>1 day (default)</option>
                         {% for value, label in interval_choices.items() %}
-                        <option value="{{ value }}" {% if user.default_interval==value %}selected{% endif %}>{{ label }}</option>
+                        <option value="{{ value }}" {% if is_pro and user.default_interval==value %}selected{% endif %}>{{ label }}</option>
                         {% endfor %}
                     </select>
                     <p class="text-[11px] text-gray-500 mt-1">Every screenshot uses this timeframe. "Match the alert's chart" needs <code class="text-gray-400">tf={{ '{{' }}interval{{ '}}' }}</code> in the alert message (the copy-paste message includes it).</p>

@@ -40,16 +40,16 @@
     <!-- Stats -->
     <div class="flex justify-center gap-16 mt-16">
         <div class="text-center">
-            <div class="text-3xl font-extrabold text-blue-400">1</div>
-            <div class="text-sm text-gray-500 mt-1">Free alert / day</div>
+            <div class="text-3xl font-extrabold text-blue-400">{{ plans.trial_days }} days</div>
+            <div class="text-sm text-gray-500 mt-1">Free Pro trial</div>
         </div>
         <div class="text-center">
-            <div class="text-3xl font-extrabold text-emerald-400">&lt;5s</div>
+            <div class="text-3xl font-extrabold text-emerald-400">~20s</div>
             <div class="text-sm text-gray-500 mt-1">Alert → Discord</div>
         </div>
         <div class="text-center">
-            <div class="text-3xl font-extrabold text-purple-400">500</div>
-            <div class="text-sm text-gray-500 mt-1">Pro alerts / day</div>
+            <div class="text-3xl font-extrabold text-purple-400">${{ plans.pro_monthly }}</div>
+            <div class="text-sm text-gray-500 mt-1">Pro / month</div>
         </div>
     </div>
 </div>
@@ -87,9 +87,9 @@
             <div class="text-4xl font-extrabold mb-1">$0</div>
             <div class="text-sm text-gray-500 mb-6">forever</div>
             <ul class="space-y-3 text-sm text-gray-300">
-                <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> 1 alert per day</li>
-                <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Chart screenshots</li>
-                <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Discord embeds</li>
+                <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> {{ plans.free_alerts }} alerts a day</li>
+                <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> {{ plans.free_channels }} Discord channel, daily chart</li>
+                <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> {{ plans.trial_days }}-day Pro trial included</li>
             </ul>
             <a href="/register"
                 class="block mt-6 text-center py-2.5 border border-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-800 transition">Get
@@ -99,18 +99,18 @@
         <div class="bg-gray-900/50 border border-blue-500/30 rounded-2xl p-8 text-left relative">
             <div class="absolute -top-3 right-6 bg-blue-600 text-xs font-bold px-3 py-1 rounded-full">POPULAR</div>
             <div class="text-sm font-semibold text-blue-400 uppercase tracking-wider mb-2">Pro</div>
-            <div class="text-4xl font-extrabold mb-1">$50<span class="text-lg font-normal text-gray-500">/mo</span>
+            <div class="text-4xl font-extrabold mb-1">${{ plans.pro_monthly }}<span class="text-lg font-normal text-gray-500">/mo</span>
             </div>
-            <div class="text-sm text-gray-500 mb-6">billed monthly</div>
+            <div class="text-sm text-gray-500 mb-6">or ${{ plans.pro_yearly_monthly }}/mo billed yearly</div>
             <ul class="space-y-3 text-sm text-gray-300">
-                <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> 500 alerts per day</li>
-                <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> Chart screenshots</li>
-                <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> Priority processing</li>
-                <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> Email support</li>
+                <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> {{ plans.pro_alerts }} alerts a day</li>
+                <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> Unlimited Discord channels</li>
+                <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> Any timeframe and your own layout</li>
+                <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> No ChartAlert branding</li>
             </ul>
             <a href="/register"
                 class="block mt-6 text-center py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold transition">Start
-                Pro</a>
+                free trial</a>
         </div>
     </div>
 </div>
