@@ -167,7 +167,7 @@ async def update_settings(
         notice = "?notice=pro_chart"
     await db.commit()
 
-    return RedirectResponse(url=f"/dashboard{notice}", status_code=303)
+    return RedirectResponse(url=f"/dashboard{notice}#settings", status_code=303)
 
 
 @router.post("/dashboard/rotate-token")
@@ -182,7 +182,9 @@ async def rotate_token(
     db_user.webhook_token_created_at = datetime.datetime.utcnow()
     await db.commit()
 
-    return RedirectResponse(url="/dashboard", status_code=303)
+    return RedirectResponse(url="/dashboard#settings", status_code=303)
+
+
 @router.post("/dashboard/webhooks/add")
 async def add_webhook(
     request: Request,
@@ -192,6 +194,8 @@ async def add_webhook(
     form = await request.form()
     name = form.get("name", "").strip() or "My Channel"
     url = form.get("url", "").strip()
+    # The setup checklist on the Overview tab stays there; the Channels tab returns to Channels
+    back = "/dashboard" if form.get("from") == "setup" else "/dashboard#channels"
 
     if not url or not DISCORD_WEBHOOK_PATTERN.match(url):
         raise HTTPException(400, "Invalid Discord webhook URL")
@@ -199,16 +203,19 @@ async def add_webhook(
     if user.effective_plan != "pro":
         count = (await db.execute(
             select(func.count(UserWebhook.id)).where(UserWebhook.user_id == user.id)
-        )).scalar() + (1 if user.discord_webhook_url else 0)
+        )).scalar()
+        # The original single-webhook field counts too, unless this re-adds that same URL
+        if user.discord_webhook_url and user.discord_webhook_url != url:
+            count += 1
         if count >= settings.free_max_channels:
-            return RedirectResponse(url="/dashboard?notice=channels", status_code=303)
+            return RedirectResponse(url="/dashboard?notice=channels#channels", status_code=303)
 
     new_wh = UserWebhook(user_id=user.id, name=name, url=url)
     db.add(new_wh)
 
     await db.commit()
 
-    return RedirectResponse(url="/dashboard", status_code=303)
+    return RedirectResponse(url=back, status_code=303)
 
 
 @router.post("/dashboard/webhooks/{webhook_id}/delete")
@@ -228,7 +235,7 @@ async def delete_webhook(
     await db.delete(wh)
     await db.commit()
 
-    return RedirectResponse(url="/dashboard", status_code=303)
+    return RedirectResponse(url="/dashboard#channels", status_code=303)
 
 
 @router.post("/dashboard/test-alert")

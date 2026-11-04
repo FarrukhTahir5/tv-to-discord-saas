@@ -99,7 +99,12 @@ async def landing(request: Request):
     user = await get_current_user_optional(request)
     return templates.TemplateResponse(
         "landing.html",
-        {"request": request, "user": user, "app_name": settings.app_name, "title": "Home"},
+        {
+            "request": request, "user": user, "app_name": settings.app_name,
+            "app_url": settings.app_url, "title": "Home",
+            # Add real customer quotes here, e.g. {"quote": "...", "name": "Bennett", "role": "Big Picture Swing Trading"}
+            "testimonials": [],
+        },
     )
 
 

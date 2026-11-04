@@ -1,117 +1,164 @@
 {% extends "base.html" %}
-{% block title %}Home{% endblock %}
+{% from "_ui.html" import icon, discord_post %}
+{% block title %}TradingView Alerts to Discord, With the Chart{% endblock %}
+
+{% block head %}
+<meta name="description" content="ChartAlert posts every TradingView alert to your Discord with a live chart screenshot. Works with the alerts you already have. {{ plans.trial_days }}-day free trial.">
+<link rel="canonical" href="{{ app_url }}/">
+<meta property="og:title" content="ChartAlert: TradingView alerts in Discord, with the chart">
+<meta property="og:description" content="Every TradingView alert posted to your Discord with a live chart screenshot. Set up in 2 minutes.">
+<meta property="og:image" content="{{ app_url }}/static/example-chart.png">
+<meta name="twitter:card" content="summary_large_image">
+{% endblock %}
+
 {% block content %}
-<div class="text-center py-20">
-    <!-- Hero -->
-    <div
-        class="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/30 rounded-full px-4 py-1.5 text-xs font-semibold text-blue-400 uppercase tracking-wider mb-8">
-        ⚡ Auto-forward TradingView alerts to Discord
-    </div>
 
-    <h1 class="text-5xl md:text-6xl font-extrabold leading-tight mb-6">
-        <span class="bg-gradient-to-r from-white via-blue-400 to-emerald-400 bg-clip-text text-transparent">
-            TradingView → Discord
-        </span><br>
-        <span class="text-gray-300">Chart Alerts, Automated</span>
-    </h1>
-
-    <p class="text-lg text-gray-400 max-w-2xl mx-auto mb-10">
-        Receive your TradingView alerts in Discord with <strong class="text-gray-200">live chart screenshots</strong>.
-        Set up in 2 minutes. No code required.
-    </p>
-
-    <!-- Flow -->
-    <div class="flex items-center justify-center gap-3 flex-wrap mb-12">
-        <div class="bg-gray-900 border border-gray-700 rounded-xl px-5 py-3 text-sm font-semibold">📈 TradingView</div>
-        <span class="text-blue-400 text-xl">→</span>
-        <div class="bg-gray-900 border border-gray-700 rounded-xl px-5 py-3 text-sm font-semibold">⚡ Webhook</div>
-        <span class="text-blue-400 text-xl">→</span>
-        <div class="bg-gray-900 border border-gray-700 rounded-xl px-5 py-3 text-sm font-semibold">🖼 Screenshot</div>
-        <span class="text-blue-400 text-xl">→</span>
-        <div class="bg-gray-900 border border-gray-700 rounded-xl px-5 py-3 text-sm font-semibold">💬 Discord</div>
-    </div>
-
-    <a href="/register"
-        class="inline-block px-8 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-white font-semibold text-lg transition-all hover:shadow-lg hover:shadow-blue-500/25">
-        Get Started Free →
-    </a>
-    <p class="mt-4 text-sm"><a href="/tradingview-alerts-to-discord" class="text-gray-400 hover:text-blue-400 underline underline-offset-4">How TradingView alerts to Discord work →</a></p>
-
-    <!-- Stats -->
-    <div class="flex justify-center gap-16 mt-16">
-        <div class="text-center">
-            <div class="text-3xl font-extrabold text-blue-400">{{ plans.trial_days }} days</div>
-            <div class="text-sm text-gray-500 mt-1">Free Pro trial</div>
+<!-- Hero: what it does on the left, the actual Discord post on the right -->
+<section class="grid lg:grid-cols-2 gap-10 lg:gap-12 items-center pt-4 pb-16">
+    <div class="text-center lg:text-left">
+        <p class="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/30 rounded-full px-3 py-1 text-xs font-semibold text-blue-400 mb-6">
+            {{ icon("bolt", "w-3.5 h-3.5") }} For trading communities on Discord
+        </p>
+        <h1 class="text-4xl md:text-5xl font-extrabold leading-tight mb-5">
+            Your TradingView alerts in Discord,
+            <span class="bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">with the chart</span>
+        </h1>
+        <p class="text-lg text-gray-400 mb-8 max-w-xl mx-auto lg:mx-0">
+            When an alert fires, {{ app_name }} opens the chart, takes a screenshot, and posts it with your message.
+            Your members see the setup, not just a ticker.
+        </p>
+        <div class="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
+            <a href="/register" class="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold transition text-center">
+                Start {{ plans.trial_days }}-day free trial
+            </a>
+            <a href="#how" class="px-6 py-3 border border-gray-700 hover:bg-gray-800 rounded-xl font-semibold transition text-center">
+                See how it works
+            </a>
         </div>
-        <div class="text-center">
-            <div class="text-3xl font-extrabold text-emerald-400">~20s</div>
-            <div class="text-sm text-gray-500 mt-1">Alert → Discord</div>
-        </div>
-        <div class="text-center">
-            <div class="text-3xl font-extrabold text-purple-400">${{ plans.pro_monthly }}</div>
-            <div class="text-sm text-gray-500 mt-1">Pro / month</div>
-        </div>
+        <p class="text-xs text-gray-500 mt-4">No card required. Set up in about 2 minutes.</p>
     </div>
-</div>
 
-<!-- Features Grid -->
-<div class="grid md:grid-cols-3 gap-6 mt-20">
-    <div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
-        <div class="text-2xl mb-3">📸</div>
-        <h3 class="font-semibold text-lg mb-2">Live Chart Screenshots</h3>
-        <p class="text-sm text-gray-400">Every alert comes with a real-time TradingView chart screenshot attached to the
-            Discord message.</p>
+    <div>
+        {{ discord_post(lazy=False) }}
+        <p class="text-center text-xs text-gray-500 mt-3">A real alert, posted by {{ app_name }}.</p>
     </div>
-    <div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
-        <div class="text-2xl mb-3">🔗</div>
-        <h3 class="font-semibold text-lg mb-2">Simple Webhook Setup</h3>
-        <p class="text-sm text-gray-400">Copy your unique webhook URL into TradingView's alert settings. That's it — no
-            bots, no code.</p>
+</section>
+
+<!-- How it works -->
+<section id="how" class="py-16 border-t border-gray-800/70 scroll-mt-8">
+    <h2 class="text-2xl md:text-3xl font-bold text-center mb-3">How it works</h2>
+    <p class="text-gray-400 text-center mb-10">Three steps, no code, no bot to host.</p>
+    <ol class="grid md:grid-cols-3 gap-5">
+        {% for n, ic, title, text in [
+            (1, "chat", "Connect Discord", "Create a webhook in your Discord channel settings and paste it into your dashboard."),
+            (2, "link", "Add it to TradingView", "Paste your ChartAlert URL into your alerts' Webhook box. Keep your usual alert messages."),
+            (3, "camera", "Alerts arrive with the chart", "Each alert lands in Discord within about 20 seconds, with a live chart of the symbol."),
+        ] %}
+        <li class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
+            <div class="flex items-center gap-3 mb-3">
+                <span class="w-9 h-9 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center">{{ icon(ic) }}</span>
+                <span class="text-xs font-semibold text-gray-500">STEP {{ n }}</span>
+            </div>
+            <h3 class="font-semibold text-white mb-1">{{ title }}</h3>
+            <p class="text-sm text-gray-400">{{ text }}</p>
+        </li>
+        {% endfor %}
+    </ol>
+</section>
+
+<!-- What you get -->
+<section class="py-16 border-t border-gray-800/70">
+    <h2 class="text-2xl md:text-3xl font-bold text-center mb-10">What you get</h2>
+    <div class="grid sm:grid-cols-2 gap-5">
+        {% for ic, title, text in [
+            ("check", "Works with your existing alerts", "Messages like \"AAPL, 1D Crossing horizontal ray\" or \"NASDAQ:AAPL breakout\" are read automatically. No JSON."),
+            ("chart", "Daily chart, or your timeframe", "Daily by default. Pro can pick any timeframe, or match the chart each alert came from."),
+            ("layers", "Your own indicators", "Link a shared TradingView layout and screenshots show your indicators and drawings."),
+            ("users", "Every channel at once", "Post the same alert to several Discord channels or servers."),
+        ] %}
+        <div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6 flex gap-4">
+            <span class="w-10 h-10 flex-shrink-0 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">{{ icon(ic) }}</span>
+            <div>
+                <h3 class="font-semibold text-white mb-1">{{ title }}</h3>
+                <p class="text-sm text-gray-400">{{ text }}</p>
+            </div>
+        </div>
+        {% endfor %}
     </div>
-    <div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
-        <div class="text-2xl mb-3">⚡</div>
-        <h3 class="font-semibold text-lg mb-2">Lightning Fast</h3>
-        <p class="text-sm text-gray-400">Alerts are processed in under 5 seconds. Screenshots are taken and posted
-            before you can blink.</p>
+</section>
+
+<!-- Who it's for -->
+<section class="py-16 border-t border-gray-800/70">
+    <h2 class="text-2xl md:text-3xl font-bold text-center mb-10">Who it's for</h2>
+    <div class="grid md:grid-cols-3 gap-5">
+        {% for ic, title, text in [
+            ("users", "Trading communities", "Educators and paid groups who post setups to members every day."),
+            ("signal", "Signal providers", "Members act faster when they can see the chart, not just the ticker."),
+            ("user", "Individual traders", "A visual log of every alert, right on your phone."),
+        ] %}
+        <div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
+            <span class="w-10 h-10 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center mb-3">{{ icon(ic) }}</span>
+            <h3 class="font-semibold text-white mb-1">{{ title }}</h3>
+            <p class="text-sm text-gray-400">{{ text }}</p>
+        </div>
+        {% endfor %}
     </div>
-</div>
+</section>
+
+{% if testimonials %}
+<!-- Testimonials (only shown once there are real ones) -->
+<section class="py-16 border-t border-gray-800/70">
+    <h2 class="text-2xl md:text-3xl font-bold text-center mb-10">What traders say</h2>
+    <div class="grid md:grid-cols-{{ [testimonials|length, 3]|min }} gap-5">
+        {% for t in testimonials %}
+        <figure class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
+            <blockquote class="text-gray-300">"{{ t.quote }}"</blockquote>
+            <figcaption class="mt-4 text-sm"><span class="font-semibold text-white">{{ t.name }}</span>{% if t.role %} <span class="text-gray-500">· {{ t.role }}</span>{% endif %}</figcaption>
+        </figure>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
 
 <!-- Pricing -->
-<div class="mt-24 text-center">
-    <h2 class="text-3xl font-bold mb-4">Simple Pricing</h2>
-    <p class="text-gray-400 mb-10">Start free, upgrade when you need more.</p>
+<section class="py-16 border-t border-gray-800/70 text-center">
+    <h2 class="text-2xl md:text-3xl font-bold mb-3">Simple pricing</h2>
+    <p class="text-gray-400 mb-10">Every account starts with {{ plans.trial_days }} days of Pro. No card required.</p>
 
-    <div class="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto">
-        <div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-8 text-left">
+    <div class="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+        <div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-8 text-left flex flex-col">
             <div class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Free</div>
             <div class="text-4xl font-extrabold mb-1">$0</div>
             <div class="text-sm text-gray-500 mb-6">forever</div>
-            <ul class="space-y-3 text-sm text-gray-300">
-                <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> {{ plans.free_alerts }} alerts a day</li>
-                <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> {{ plans.free_channels }} Discord channel, daily chart</li>
-                <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> {{ plans.trial_days }}-day Pro trial included</li>
+            <ul class="space-y-3 text-sm text-gray-300 flex-1">
+                <li class="flex items-center gap-2"><span class="text-emerald-400">{{ icon("check", "w-4 h-4") }}</span> {{ plans.free_alerts }} alerts a day</li>
+                <li class="flex items-center gap-2"><span class="text-emerald-400">{{ icon("check", "w-4 h-4") }}</span> {{ plans.free_channels }} Discord channel</li>
+                <li class="flex items-center gap-2"><span class="text-emerald-400">{{ icon("check", "w-4 h-4") }}</span> Daily chart screenshots</li>
             </ul>
-            <a href="/register"
-                class="block mt-6 text-center py-2.5 border border-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-800 transition">Get
-                Started</a>
+            <a href="/register" class="block mt-8 text-center py-2.5 border border-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-800 transition">Get started</a>
         </div>
 
-        <div class="bg-gray-900/50 border border-blue-500/30 rounded-2xl p-8 text-left relative">
+        <div class="bg-gray-900/50 border-2 border-blue-500/40 rounded-2xl p-8 text-left relative flex flex-col">
             <div class="absolute -top-3 right-6 bg-blue-600 text-xs font-bold px-3 py-1 rounded-full">POPULAR</div>
             <div class="text-sm font-semibold text-blue-400 uppercase tracking-wider mb-2">Pro</div>
-            <div class="text-4xl font-extrabold mb-1">${{ plans.pro_monthly }}<span class="text-lg font-normal text-gray-500">/mo</span>
-            </div>
+            <div class="text-4xl font-extrabold mb-1">${{ plans.pro_monthly }}<span class="text-lg font-normal text-gray-500">/mo</span></div>
             <div class="text-sm text-gray-500 mb-6">or ${{ plans.pro_yearly_monthly }}/mo billed yearly</div>
-            <ul class="space-y-3 text-sm text-gray-300">
-                <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> {{ plans.pro_alerts }} alerts a day</li>
-                <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> Unlimited Discord channels</li>
-                <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> Any timeframe and your own layout</li>
-                <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> No ChartAlert branding</li>
+            <ul class="space-y-3 text-sm text-gray-300 flex-1">
+                <li class="flex items-center gap-2"><span class="text-blue-400">{{ icon("check", "w-4 h-4") }}</span> {{ plans.pro_alerts }} alerts a day</li>
+                <li class="flex items-center gap-2"><span class="text-blue-400">{{ icon("check", "w-4 h-4") }}</span> Unlimited Discord channels</li>
+                <li class="flex items-center gap-2"><span class="text-blue-400">{{ icon("check", "w-4 h-4") }}</span> Any timeframe and your own layout</li>
+                <li class="flex items-center gap-2"><span class="text-blue-400">{{ icon("check", "w-4 h-4") }}</span> No ChartAlert branding</li>
             </ul>
-            <a href="/register"
-                class="block mt-6 text-center py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold transition">Start
-                free trial</a>
+            <a href="/register" class="block mt-8 text-center py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold transition">Start free trial</a>
         </div>
     </div>
-</div>
+    <p class="text-xs text-gray-500 mt-6">Requires a paid TradingView plan (webhook alerts are a paid TradingView feature). <a href="/pricing" class="underline underline-offset-4 hover:text-gray-300">Full pricing and FAQ</a></p>
+</section>
+
+<!-- Final CTA -->
+<section class="mt-4 text-center bg-gradient-to-br from-blue-600/15 to-emerald-600/10 border border-blue-500/20 rounded-2xl p-8 md:p-10">
+    <h2 class="text-2xl font-bold mb-2">Put charts on your Discord alerts</h2>
+    <p class="text-gray-400 mb-6">Try every Pro feature free for {{ plans.trial_days }} days.</p>
+    <a href="/register" class="inline-block px-7 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold transition">Create free account</a>
+</section>
 {% endblock %}

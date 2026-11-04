@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_ui.html" import icon %}
 {% block title %}Dashboard{% endblock %}
 {% block content %}
 
@@ -16,11 +17,16 @@
 
 {% macro step_badge(done, n) %}
 {% if done %}
-<span class="flex-shrink-0 w-7 h-7 bg-emerald-500 rounded-full flex items-center justify-center text-sm font-bold text-gray-950">✓</span>
+<span class="flex-shrink-0 w-7 h-7 bg-emerald-500 rounded-full flex items-center justify-center text-gray-950">{{ icon("check", "w-4 h-4") }}</span>
 {% else %}
 <span class="flex-shrink-0 w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center text-sm font-bold">{{ n }}</span>
 {% endif %}
 {% endmacro %}
+
+{% macro pro_badge() %}{% if not is_pro %} <span class="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/30 font-bold">PRO</span>{% endif %}{% endmacro %}
+
+{% set channel_count = user_webhooks | length + (1 if user.discord_webhook_url and not user_webhooks else 0) %}
+{% set input_cls = "w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm focus:border-blue-500 outline-none transition disabled:opacity-50" %}
 
 {% if notice %}
 <div class="mb-6 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-sm text-amber-300 flex flex-wrap items-center justify-between gap-3">
@@ -35,6 +41,20 @@
 </div>
 {% endif %}
 
+<!-- Tabs -->
+<nav class="flex gap-1 mb-6 border-b border-gray-800 overflow-x-auto" role="tablist">
+    {% for key, label, ic in [("overview", "Overview", "gauge"), ("channels", "Channels", "chat"), ("settings", "Settings", "cog")] %}
+    <a href="#{{ key }}" data-tab="{{ key }}" role="tab"
+        class="tab-link flex items-center gap-2 px-3 sm:px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px border-transparent text-gray-400 hover:text-white transition whitespace-nowrap">
+        {{ icon(ic, "w-4 h-4") }} {{ label }}
+        {% if key == "channels" %}<span class="text-[11px] px-1.5 rounded-full bg-gray-800 text-gray-400">{{ channel_count }}</span>{% endif %}
+    </a>
+    {% endfor %}
+</nav>
+
+<!-- ============================ OVERVIEW ============================ -->
+<section id="panel-overview" class="tab-panel" role="tabpanel">
+
 {% if not setup.complete %}
 <!-- Setup checklist (shown until the first real TradingView alert arrives) -->
 {% set done_count = [setup.channel, setup.test, setup.tradingview] | select | list | length %}
@@ -48,7 +68,6 @@
     </div>
 
     <ol class="space-y-6">
-        <!-- Step 1: Discord -->
         <li class="flex gap-4">
             {{ step_badge(setup.channel, 1) }}
             <div class="flex-1 min-w-0">
@@ -60,6 +79,7 @@
                     In Discord: <strong class="text-gray-200">Channel settings → Integrations → Webhooks → New Webhook → Copy Webhook URL</strong>. Paste it here:
                 </p>
                 <form method="POST" action="/dashboard/webhooks/add" class="flex gap-2">
+                    <input type="hidden" name="from" value="setup">
                     <input type="url" name="url" placeholder="https://discord.com/api/webhooks/..." required
                         class="flex-1 min-w-0 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm focus:border-blue-500 outline-none transition">
                     <button type="submit" class="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold transition whitespace-nowrap">Connect</button>
@@ -68,7 +88,6 @@
             </div>
         </li>
 
-        <!-- Step 2: Test -->
         <li class="flex gap-4">
             {{ step_badge(setup.test, 2) }}
             <div class="flex-1 min-w-0">
@@ -87,7 +106,6 @@
             </div>
         </li>
 
-        <!-- Step 3: TradingView -->
         <li class="flex gap-4">
             {{ step_badge(setup.tradingview, 3) }}
             <div class="flex-1 min-w-0">
@@ -107,10 +125,9 @@
     </ol>
 </div>
 {% else %}
-<!-- TradingView connection (after setup) -->
 <div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6 mb-6">
-    <div class="flex flex-wrap items-baseline justify-between gap-2 mb-4">
-        <h2 class="text-lg font-bold">Your TradingView connection</h2>
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <h2 class="text-lg font-bold flex items-center gap-2"><span class="text-blue-400">{{ icon("link") }}</span> Your TradingView connection</h2>
         <form method="POST" action="/dashboard/test-alert">
             <button type="submit" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-xs font-semibold transition">Send test alert</button>
         </form>
@@ -119,324 +136,264 @@
         {{ copy_field('webhook-url', webhook_url, 'Webhook URL (Notifications → Webhook URL)') }}
         {{ copy_field('alert-message', alert_message, 'Message (works for every alert)') }}
     </div>
-    <div class="mt-4 flex items-center gap-3">
-        <form method="POST" action="/dashboard/rotate-token">
-            <button type="submit" class="text-xs text-gray-500 hover:text-orange-400 transition"
-                onclick="return confirm('This will invalidate your current webhook URL. You will need to update it in every TradingView alert. Continue?')">
-                Rotate token
-            </button>
-        </form>
-        <span class="text-xs text-gray-600">Token created: {{ user.webhook_token_created_at.strftime('%Y-%m-%d') if
-            user.webhook_token_created_at else 'N/A' }}</span>
-    </div>
 </div>
 {% endif %}
 
-<!-- Usage + Settings Grid -->
 <div class="grid md:grid-cols-2 gap-6 mb-6">
-
-    <!-- Usage Card -->
-    <div class="relative overflow-hidden bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
-        <h2 class="text-lg font-bold mb-4">📊 Today's Usage</h2>
-
+    <!-- Usage -->
+    <div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
+        <h2 class="text-lg font-bold mb-4 flex items-center gap-2"><span class="text-blue-400">{{ icon("chart") }}</span> Today's usage</h2>
         {% set usage_pct = ((user.alerts_used_today / alert_limit) * 100) | int if alert_limit > 0 else 0 %}
-
         <div class="flex items-end justify-between mb-2">
-            <span
-                class="text-4xl font-extrabold
-        {% if usage_pct >= 90 %}text-red-400{% elif usage_pct >= 70 %}text-orange-400{% else %}text-white{% endif %}">
-                {{ user.alerts_used_today }}
-            </span>
+            <span class="text-4xl font-extrabold {% if usage_pct >= 90 %}text-red-400{% elif usage_pct >= 70 %}text-orange-400{% else %}text-white{% endif %}">{{ user.alerts_used_today }}</span>
             <span class="text-sm text-gray-500 font-medium">/ {{ alert_limit }} alerts today</span>
         </div>
-
         <div class="w-full bg-gray-800/50 rounded-full h-3 overflow-hidden border border-gray-700/30">
             <div class="h-full rounded-full transition-all duration-700 ease-out
-        {% if usage_pct >= 90 %}bg-gradient-to-r from-red-600 to-orange-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]
-        {% elif usage_pct >= 70 %}bg-gradient-to-r from-orange-500 to-yellow-400
-        {% else %}bg-gradient-to-r from-blue-600 to-indigo-500 shadow-[0_0_15px_rgba(37,99,235,0.2)]{% endif %}"
+                {% if usage_pct >= 90 %}bg-gradient-to-r from-red-600 to-orange-500{% elif usage_pct >= 70 %}bg-gradient-to-r from-orange-500 to-yellow-400{% else %}bg-gradient-to-r from-blue-600 to-indigo-500{% endif %}"
                 style="width: {{ [usage_pct, 100] | min }}%"></div>
         </div>
+        <p class="text-xs text-gray-500 mt-3">Resets at midnight UTC.</p>
+    </div>
 
+    <!-- Plan / billing -->
+    <div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
         {% if user.effective_plan == 'free' %}
-        <!-- Premium Upgrade CTA -->
-        <div class="mt-8 relative group">
-            <div class="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl blur opacity-30 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"></div>
-            <div class="relative bg-gray-950 border border-white/5 rounded-2xl p-5 overflow-hidden">
-                <div class="absolute top-0 right-0 p-3 opacity-10">
-                    <svg class="w-16 h-16 text-blue-500" fill="currentColor" viewBox="0 0 20 20"><path d="M11 3a1 1 0 10-2 0v1a1 1 0 102 0V3zM15.657 5.757a1 1 0 00-1.414-1.414l-.707.707a1 1 0 001.414 1.414l.707-.707zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zM5.05 6.464A1 1 0 106.464 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zM5 10a1 1 0 01-1 1H3a1 1 0 110-2h1a1 1 0 011 1zM8 16v-1h4v1a2 2 0 11-4 0zM12 14c.015-.34.208-.646.477-.859C13.487 12.311 14 11.231 14 10a4 4 0 10-8 0c0 1.231.513 2.311 1.523 3.141.269.213.462.519.477.859h4z"></path></svg>
-                </div>
-                <h3 class="text-sm font-bold text-white mb-2">Pro: ${{ plans.pro_monthly }}/month</h3>
-                <ul class="text-xs text-gray-400 space-y-2 mb-6">
-                    <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> {{ plans.pro_alerts }} alerts a day instead of {{ plans.free_alerts }}</li>
-                    <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> Unlimited Discord channels</li>
-                    <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> Any timeframe and your own chart layout</li>
-                    <li class="flex items-center gap-2"><span class="text-blue-400">✓</span> No "via ChartAlert" credit on your posts</li>
-                </ul>
-                <form method="POST" action="/billing/create-checkout">
-                    <input type="hidden" name="plan_type" value="monthly">
-                    <button type="submit" 
-                        class="w-full py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-600/20 transition-all transform hover:scale-[1.02] active:scale-[0.98]">
-                        Upgrade to Pro →
-                    </button>
-                </form>
-            </div>
+        <div class="flex items-center justify-between mb-3">
+            <h2 class="text-lg font-bold">Free plan</h2>
+            <span class="text-[11px] px-2 py-0.5 rounded-full bg-gray-700/40 text-gray-400 border border-gray-600/40">{{ plans.free_alerts }} alerts a day</span>
         </div>
+        <p class="text-sm text-gray-400 mb-4">Pro is ${{ plans.pro_monthly }}/month, or ${{ plans.pro_yearly_monthly }}/month billed yearly.</p>
+        <ul class="text-sm text-gray-300 space-y-2 mb-5">
+            {% for f in [plans.pro_alerts ~ " alerts a day instead of " ~ plans.free_alerts, "Unlimited Discord channels", "Any timeframe and your own chart layout", "No \"via ChartAlert\" credit on your posts"] %}
+            <li class="flex items-center gap-2"><span class="text-blue-400">{{ icon("check", "w-4 h-4") }}</span> {{ f }}</li>
+            {% endfor %}
+        </ul>
+        <form method="POST" action="/billing/create-checkout">
+            <input type="hidden" name="plan_type" value="monthly">
+            <button type="submit" class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold transition">Upgrade to Pro</button>
+        </form>
         {% else %}
-        <!-- Billing (Pro) -->
-        <div class="mt-6 p-4 bg-blue-500/5 border border-blue-500/20 rounded-xl">
-            <div class="flex items-center justify-between mb-2">
-                <span class="text-xs font-bold text-blue-400 uppercase tracking-wider">Pro plan</span>
-                {% if user.subscription_status == 'past_due' %}
-                <span class="text-[11px] px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/30">Payment failed</span>
-                {% elif user.subscription_status == 'cancelled' %}
-                <span class="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">Cancelled</span>
-                {% elif user.on_trial and not user.ls_subscription_id %}
-                <span class="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">Free trial</span>
-                {% else %}
-                <span class="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">Active</span>
-                {% endif %}
-            </div>
-
-            <p class="text-sm text-gray-300 mb-3">
-                {% if user.subscription_status == 'past_due' %}
-                Your last payment didn't go through. Update your card to keep Pro.
-                {% elif user.subscription_status == 'cancelled' and user.subscription_ends_at %}
-                Pro until <strong>{{ user.subscription_ends_at.strftime('%b %d, %Y') }}</strong>. Resume any time before then to keep it.
-                {% elif user.on_trial and not user.ls_subscription_id %}
-                Your free trial ends <strong>{{ user.trial_expires_at.strftime('%b %d, %Y') }}</strong>. Subscribe for ${{ plans.pro_monthly }}/month to keep Pro features.
-                {% elif user.ls_subscription_id %}
-                {% if user.subscription_renews_at %}Renews <strong>{{ user.subscription_renews_at.strftime('%b %d, %Y') }}</strong>.{% else %}Your subscription is active.{% endif %}
-                {% else %}
-                Pro access granted by {{ app_name }}.
-                {% endif %}
-            </p>
-
-            {% if user.ls_subscription_id %}
-            <div class="flex flex-wrap gap-2">
-                {% if user.subscription_status == 'past_due' %}
-                <a href="/billing/portal?to=card" class="px-3 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-xs font-semibold transition">Update card</a>
-                {% endif %}
-                <a href="/billing/portal" class="px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-xs font-semibold transition">
-                    {{ 'Resume subscription' if user.subscription_status == 'cancelled' else 'Manage billing' }}
-                </a>
-            </div>
-            <p class="text-[11px] text-gray-500 mt-2">Change card, download invoices, switch plan, or cancel.</p>
-            {% elif user.on_trial %}
-            <form method="POST" action="/billing/create-checkout">
-                <input type="hidden" name="plan_type" value="monthly">
-                <button type="submit" class="px-3 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-semibold transition">Subscribe to Pro</button>
-            </form>
+        <div class="flex items-center justify-between mb-3">
+            <h2 class="text-lg font-bold">Pro plan</h2>
+            {% if user.subscription_status == 'past_due' %}
+            <span class="text-[11px] px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/30">Payment failed</span>
+            {% elif user.subscription_status == 'cancelled' %}
+            <span class="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">Cancelled</span>
+            {% elif user.on_trial and not user.ls_subscription_id %}
+            <span class="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">Free trial</span>
+            {% else %}
+            <span class="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">Active</span>
             {% endif %}
         </div>
+        <p class="text-sm text-gray-300 mb-4">
+            {% if user.subscription_status == 'past_due' %}
+            Your last payment didn't go through. Update your card to keep Pro.
+            {% elif user.subscription_status == 'cancelled' and user.subscription_ends_at %}
+            Pro until <strong>{{ user.subscription_ends_at.strftime('%b %d, %Y') }}</strong>. Resume any time before then to keep it.
+            {% elif user.on_trial and not user.ls_subscription_id %}
+            Your free trial ends <strong>{{ user.trial_expires_at.strftime('%b %d, %Y') }}</strong>. Subscribe for ${{ plans.pro_monthly }}/month to keep Pro features.
+            {% elif user.ls_subscription_id %}
+            {% if user.subscription_renews_at %}Renews <strong>{{ user.subscription_renews_at.strftime('%b %d, %Y') }}</strong>.{% else %}Your subscription is active.{% endif %}
+            {% else %}
+            Pro access granted by {{ app_name }}.
+            {% endif %}
+        </p>
+        {% if user.ls_subscription_id %}
+        <div class="flex flex-wrap gap-2">
+            {% if user.subscription_status == 'past_due' %}
+            <a href="/billing/portal?to=card" class="px-3 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-xs font-semibold transition">Update card</a>
+            {% endif %}
+            <a href="/billing/portal" class="px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-xs font-semibold transition">
+                {{ 'Resume subscription' if user.subscription_status == 'cancelled' else 'Manage billing' }}
+            </a>
+        </div>
+        <p class="text-[11px] text-gray-500 mt-2">Change card, download invoices, switch plan, or cancel.</p>
+        {% elif user.on_trial %}
+        <form method="POST" action="/billing/create-checkout">
+            <input type="hidden" name="plan_type" value="monthly">
+            <button type="submit" class="px-3 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-semibold transition">Subscribe to Pro</button>
+        </form>
+        {% endif %}
         {% endif %}
     </div>
-
-    <!-- Discord Channels Management -->
-    <div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
-        <div class="flex items-center justify-between mb-6">
-            <h2 class="text-lg font-bold">📢 Discord Channels</h2>
-            <span class="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Multi-Channel Active</span>
-        </div>
-
-        <!-- Add New Webhook Form -->
-        <form method="POST" action="/dashboard/webhooks/add" class="mb-8 p-4 bg-gray-800/30 border border-gray-700/50 rounded-xl">
-            <h3 class="text-xs font-bold text-gray-400 uppercase mb-3 px-1">Add New Discord Channel</h3>
-            <div class="space-y-3">
-                <input type="text" name="name" placeholder="Channel nickname (optional, e.g. VIP Group)"
-                    class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm focus:border-blue-500 outline-none transition">
-                <div class="flex gap-2">
-                    <input type="url" name="url" placeholder="Discord Webhook URL" required
-                        class="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm focus:border-blue-500 outline-none transition">
-                    <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-bold transition">
-                        Add
-                    </button>
-                </div>
-            </div>
-        </form>
-
-        <!-- List of Active Webhooks -->
-        <div class="space-y-3">
-            <h3 class="text-xs font-bold text-gray-500 uppercase mb-2 px-1">Active Channels</h3>
-            {% if user_webhooks or user.discord_webhook_url %}
-                {% if user_webhooks %}
-                    {% for wh in user_webhooks %}
-                    <div class="group flex items-center justify-between p-3.5 bg-gray-800/40 border border-gray-700/30 rounded-xl hover:border-gray-600 transition">
-                        <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 bg-blue-500/10 rounded-lg flex items-center justify-center text-blue-400">
-                                💬
-                            </div>
-                            <div>
-                                <div class="text-sm font-bold text-gray-200">{{ wh.name }}</div>
-                                <div class="text-[10px] text-gray-500 font-mono truncate max-w-[180px]">{{ wh.url }}</div>
-                            </div>
-                        </div>
-                        <form method="POST" action="/dashboard/webhooks/{{ wh.id }}/delete" onsubmit="return confirm('Remove this channel?')">
-                            <button type="submit" class="p-2 text-gray-600 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition opacity-0 group-hover:opacity-100">
-                                🗑️
-                            </button>
-                        </form>
-                    </div>
-                    {% endfor %}
-                {% endif %}
-
-                {% if user.discord_webhook_url and not user_webhooks %}
-                    <!-- Support for legacy single webhook if no new ones are added -->
-                    <div class="flex items-center justify-between p-3.5 bg-orange-500/5 border border-orange-500/20 rounded-xl">
-                        <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 bg-orange-500/10 rounded-lg flex items-center justify-center text-orange-400">
-                                ⚠️
-                            </div>
-                            <div>
-                                <div class="text-sm font-bold text-orange-400">Legacy Channel</div>
-                                <div class="text-[10px] text-gray-500 font-mono truncate max-w-[180px]">{{ user.discord_webhook_url }}</div>
-                            </div>
-                        </div>
-                        <span class="text-[10px] text-orange-500/50 italic px-2">Migrate by adding above</span>
-                    </div>
-                {% endif %}
-            {% else %}
-                <div class="text-center py-6 bg-gray-800/20 border border-dashed border-gray-700/50 rounded-xl">
-                    <p class="text-xs text-gray-500 italic">No Discord channels configured yet.</p>
-                </div>
-            {% endif %}
-        </div>
-
-        <!-- General Preferences -->
-        <div class="mt-10 pt-8 border-t border-gray-800/50">
-            <h2 class="text-lg font-bold mb-4">⚙️ General Preferences</h2>
-            <form method="POST" action="/dashboard/settings" class="space-y-4">
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-xs font-medium text-gray-400 mb-1">Default Exchange</label>
-                        <select name="default_exchange"
-                            class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm focus:border-blue-500 outline-none transition">
-                            {% for ex in ['AUTO', 'NASDAQ', 'NYSE', 'AMEX', 'BINANCE', 'BYBIT', 'COINBASE', 'FOREX', 'TSX', 'LSE', 'ASX'] %}
-                            <option value="{{ ex }}" {% if user.default_exchange==ex %}selected{% endif %}>{{ ex }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-400 mb-1">Default Symbol (optional)</label>
-                        <input type="text" name="default_symbol" value="{{ user.default_symbol or '' }}"
-                            class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm focus:border-blue-500 outline-none transition"
-                            placeholder="e.g. BTCUSD">
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-400 mb-1">TradingView Chart Layout (optional){% if not is_pro %} <span class="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/30 font-bold">PRO</span>{% endif %}</label>
-                    <input type="text" name="chart_layout" {% if not is_pro %}disabled{% endif %}
-                        value="{{ 'https://www.tradingview.com/chart/' ~ user.chart_layout_id ~ '/' if user.chart_layout_id else '' }}"
-                        class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm focus:border-blue-500 outline-none transition disabled:opacity-50"
-                        placeholder="https://www.tradingview.com/chart/AbC123xY/">
-                    <p class="text-[11px] text-gray-500 mt-1">Screenshots will use this layout's indicators, drawings and style. Turn on sharing for the layout in TradingView so it can be opened without your login.</p>
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-400 mb-1">Chart Timeframe{% if not is_pro %} <span class="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/30 font-bold">PRO</span>{% endif %}</label>
-                    <select name="default_interval" {% if not is_pro %}disabled{% endif %}
-                        class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm focus:border-blue-500 outline-none transition disabled:opacity-50">
-                        <option value="" {% if not user.default_interval or not is_pro %}selected{% endif %}>1 day (default)</option>
-                        {% for value, label in interval_choices.items() %}
-                        <option value="{{ value }}" {% if is_pro and user.default_interval==value %}selected{% endif %}>{{ label }}</option>
-                        {% endfor %}
-                    </select>
-                    <p class="text-[11px] text-gray-500 mt-1">Every screenshot uses this timeframe. "Match the alert's chart" needs <code class="text-gray-400">tf={{ '{{' }}interval{{ '}}' }}</code> in the alert message (the copy-paste message includes it).</p>
-                </div>
-                <button type="submit"
-                    class="w-full py-2.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl text-sm font-semibold transition">
-                    Save Preferences
-                </button>
-            </form>
-        </div>
-    </div>
-
 </div>
 
-<!-- Recent Alerts -->
+<!-- Recent alerts -->
 <div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
-    <h2 class="text-lg font-bold mb-4">📋 Recent Alerts</h2>
-
+    <h2 class="text-lg font-bold mb-4 flex items-center gap-2"><span class="text-blue-400">{{ icon("list") }}</span> Recent alerts</h2>
     {% if recent_alerts %}
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead>
-                <tr class="border-b border-gray-800">
-                    <th class="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider py-2 px-3">Symbol
-                    </th>
-                    <th class="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider py-2 px-3">Message
-                    </th>
-                    <th class="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider py-2 px-3">Status
-                    </th>
-                    <th class="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider py-2 px-3">Time
-                    </th>
-                    <th class="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider py-2 px-3">Speed
-                    </th>
+                <tr class="border-b border-gray-800 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    <th class="py-2 px-3">Symbol</th>
+                    <th class="py-2 px-3">Message</th>
+                    <th class="py-2 px-3">Status</th>
+                    <th class="py-2 px-3">Time (UTC)</th>
+                    <th class="py-2 px-3 text-right">Took</th>
                 </tr>
             </thead>
             <tbody>
                 {% for alert in recent_alerts %}
                 <tr class="border-b border-gray-800/50 hover:bg-gray-800/30 transition">
                     <td class="py-2.5 px-3 font-mono text-blue-400 text-xs">{{ alert.parsed_symbol or '—' }}</td>
-                    <td class="py-2.5 px-3 text-gray-300 max-w-[200px] truncate">{{ alert.parsed_message or
-                        alert.raw_text }}</td>
-                    <td class="py-2.5 px-3">
+                    <td class="py-2.5 px-3 text-gray-300 max-w-[220px] truncate" title="{{ alert.raw_text }}">{{ alert.parsed_message or alert.raw_text }}</td>
+                    <td class="py-2.5 px-3 whitespace-nowrap">
                         {% if alert.status == 'discord_ok' and alert.error_stage == 'screenshot' %}
-                        <span
-                            class="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30"
-                            title="The alert was posted, but the chart couldn't be captured in time">✓ Sent (no chart)</span>
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30" title="Posted, but the chart couldn't be captured in time">Sent, no chart</span>
                         {% elif alert.status == 'discord_ok' %}
-                        <span
-                            class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">✓
-                            Sent</span>
-                        {% elif alert.status == 'queued' %}
-                        <span
-                            class="text-xs px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">⏳
-                            Queued</span>
-                        {% elif alert.status == 'screenshot_ok' %}
-                        <span
-                            class="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">📸
-                            Screenshot</span>
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">Sent</span>
+                        {% elif alert.status in ('queued', 'processing', 'screenshot_ok') %}
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-yellow-500/15 text-yellow-400 border border-yellow-500/30">Sending…</span>
+                        {% elif alert.error_stage == 'billing' %}
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/30" title="Upgrade to Pro for {{ plans.pro_alerts }} alerts a day">Daily limit reached</span>
+                        {% elif alert.error_stage == 'discord' %}
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/30" title="{{ alert.error_message or '' }}">Discord rejected it</span>
                         {% else %}
-                        <span
-                            class="text-xs px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30"
-                            title="{{ alert.error_message or '' }}">✗ Failed</span>
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/30" title="{{ alert.error_message or '' }}">Failed</span>
                         {% endif %}
                     </td>
-                    <td class="py-2.5 px-3 text-gray-500 text-xs">{{ alert.created_at.strftime('%H:%M:%S') if
-                        alert.created_at else '—' }}</td>
-                    <td class="py-2.5 px-3 text-right text-gray-500 text-xs font-mono">
-                        {{ ((alert.processing_time_ms or 0) / 1000) | round(1) }}s
-                        {%- if alert.processing_time_ms -%}
-                        {%- endif -%}
-                    </td>
+                    <td class="py-2.5 px-3 text-gray-500 text-xs whitespace-nowrap">{{ alert.created_at.strftime('%b %d %H:%M') if alert.created_at else '—' }}</td>
+                    <td class="py-2.5 px-3 text-right text-gray-500 text-xs font-mono">{{ ((alert.processing_time_ms or 0) / 1000) | round(1) }}s</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+    {% if recent_alerts | selectattr('error_stage', 'equalto', 'discord') | list %}
+    <p class="text-xs text-gray-500 mt-3">"Discord rejected it" usually means the channel's webhook was deleted. Remove it and add a new one under <a href="#channels" data-tab-link="channels" class="underline">Channels</a>.</p>
+    {% endif %}
     {% else %}
     <div class="text-center py-10 text-gray-500">
-        <div class="text-3xl mb-3">📭</div>
-        <p>No alerts yet. Follow the setup steps at the top of this page.</p>
+        <div class="flex justify-center mb-3 text-gray-600">{{ icon("inbox", "w-8 h-8") }}</div>
+        <p>No alerts yet. Follow the setup steps above.</p>
     </div>
     {% endif %}
 </div>
+</section>
 
-{% if setup.complete %}
-<!-- Setup guide (collapsed, for adding more alerts later) -->
-<details class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6 mt-6 group">
-    <summary class="text-lg font-bold cursor-pointer list-none flex items-center justify-between">
-        Setup guide
-        <span class="text-sm text-gray-500 font-normal group-open:hidden">Show</span>
-        <span class="text-sm text-gray-500 font-normal hidden group-open:inline">Hide</span>
-    </summary>
-    <ol class="mt-4 space-y-3 text-sm text-gray-300 list-decimal pl-5">
-        <li><strong>Discord:</strong> Channel settings → Integrations → Webhooks → New Webhook → Copy Webhook URL. Add it under Discord Channels.</li>
-        <li><strong>TradingView:</strong> create an alert (Alt + A). In Notifications, tick Webhook URL and paste your URL. Paste the message into the Message box. Click Create.</li>
-        <li><strong>Optional:</strong> paste a shared chart layout link under Preferences so screenshots show your indicators.</li>
-    </ol>
-</details>
-{% endif %}
+<!-- ============================ CHANNELS ============================ -->
+<section id="panel-channels" class="tab-panel hidden" role="tabpanel">
+<div class="grid md:grid-cols-5 gap-6">
+    <div class="md:col-span-2">
+        <form method="POST" action="/dashboard/webhooks/add" class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6 space-y-3">
+            <h2 class="text-lg font-bold flex items-center gap-2"><span class="text-blue-400">{{ icon("plus") }}</span> Add a channel</h2>
+            <p class="text-xs text-gray-400">In Discord: Channel settings → Integrations → Webhooks → New Webhook → Copy Webhook URL.</p>
+            <input type="text" name="name" placeholder="Nickname (optional, e.g. VIP Group)" class="{{ input_cls }}">
+            <input type="url" name="url" placeholder="https://discord.com/api/webhooks/..." required class="{{ input_cls }}">
+            <button type="submit" class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold transition">Add channel</button>
+            {% if not is_pro %}<p class="text-[11px] text-gray-500">Free includes {{ plans.free_channels }} channel. Pro posts to as many as you like.</p>{% endif %}
+        </form>
+    </div>
+
+    <div class="md:col-span-3 bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
+        <h2 class="text-lg font-bold mb-1">Your channels</h2>
+        <p class="text-xs text-gray-500 mb-4">Every alert is posted to all of them.</p>
+        {% if user_webhooks or user.discord_webhook_url %}
+        <ul class="space-y-3">
+            {% for wh in user_webhooks %}
+            <li class="flex items-center justify-between gap-3 p-3.5 bg-gray-800/40 border border-gray-700/40 rounded-xl">
+                <div class="flex items-center gap-3 min-w-0">
+                    <span class="w-9 h-9 flex-shrink-0 bg-blue-500/10 rounded-lg flex items-center justify-center text-blue-400">{{ icon("chat", "w-4 h-4") }}</span>
+                    <div class="min-w-0">
+                        <div class="text-sm font-semibold text-gray-200 truncate">{{ wh.name }}</div>
+                        <div class="text-[11px] text-gray-500 font-mono truncate">…{{ wh.url[-24:] }}</div>
+                    </div>
+                </div>
+                <form method="POST" action="/dashboard/webhooks/{{ wh.id }}/delete" onsubmit="return confirm('Remove this channel?')">
+                    <button type="submit" class="p-2 text-gray-500 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition" title="Remove channel" aria-label="Remove {{ wh.name }}">{{ icon("trash", "w-4 h-4") }}</button>
+                </form>
+            </li>
+            {% endfor %}
+            {% if user.discord_webhook_url and not user_webhooks %}
+            <li class="flex items-center gap-3 p-3.5 bg-orange-500/5 border border-orange-500/20 rounded-xl">
+                <span class="w-9 h-9 flex-shrink-0 bg-orange-500/10 rounded-lg flex items-center justify-center text-orange-400">{{ icon("warn", "w-4 h-4") }}</span>
+                <div class="min-w-0">
+                    <div class="text-sm font-semibold text-orange-300">Original channel</div>
+                    <div class="text-[11px] text-gray-500">Still works. Add it again on the left to give it a name.</div>
+                </div>
+            </li>
+            {% endif %}
+        </ul>
+        {% else %}
+        <div class="text-center py-8 border border-dashed border-gray-700/60 rounded-xl">
+            <div class="flex justify-center mb-2 text-gray-600">{{ icon("chat", "w-7 h-7") }}</div>
+            <p class="text-sm text-gray-500">No Discord channels yet.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+</section>
+
+<!-- ============================ SETTINGS ============================ -->
+<section id="panel-settings" class="tab-panel hidden" role="tabpanel">
+<div class="grid md:grid-cols-5 gap-6">
+    <form method="POST" action="/dashboard/settings" class="md:col-span-3 bg-gray-900/50 border border-gray-800 rounded-2xl p-6 space-y-5">
+        <h2 class="text-lg font-bold">Chart and alert settings</h2>
+
+        <div>
+            <label class="block text-xs font-medium text-gray-400 mb-1">Chart timeframe{{ pro_badge() }}</label>
+            <select name="default_interval" {% if not is_pro %}disabled{% endif %} class="{{ input_cls }}">
+                <option value="" {% if not user.default_interval or not is_pro %}selected{% endif %}>1 day (default)</option>
+                {% for value, label in interval_choices.items() %}
+                <option value="{{ value }}" {% if is_pro and user.default_interval==value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <p class="text-[11px] text-gray-500 mt-1">"Match the alert's chart" needs <code class="text-gray-400">tf={{ '{{' }}interval{{ '}}' }}</code> in the alert message (the copy-paste message includes it).</p>
+        </div>
+
+        <div>
+            <label class="block text-xs font-medium text-gray-400 mb-1">TradingView chart layout (optional){{ pro_badge() }}</label>
+            <input type="text" name="chart_layout" {% if not is_pro %}disabled{% endif %}
+                value="{{ 'https://www.tradingview.com/chart/' ~ user.chart_layout_id ~ '/' if user.chart_layout_id else '' }}"
+                class="{{ input_cls }}" placeholder="https://www.tradingview.com/chart/AbC123xY/">
+            <p class="text-[11px] text-gray-500 mt-1">Screenshots use this layout's indicators, drawings and style. Turn on sharing for the layout in TradingView.</p>
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-3">
+            <div>
+                <label class="block text-xs font-medium text-gray-400 mb-1">Default exchange</label>
+                <select name="default_exchange" class="{{ input_cls }}">
+                    {% for ex in ['AUTO', 'NASDAQ', 'NYSE', 'AMEX', 'BINANCE', 'BYBIT', 'COINBASE', 'FOREX', 'TSX', 'LSE', 'ASX'] %}
+                    <option value="{{ ex }}" {% if user.default_exchange==ex %}selected{% endif %}>{{ ex }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-400 mb-1">Default symbol (optional)</label>
+                <input type="text" name="default_symbol" value="{{ user.default_symbol or '' }}" class="{{ input_cls }}" placeholder="e.g. BTCUSD">
+            </div>
+        </div>
+        <p class="text-[11px] text-gray-500 -mt-2">Used when an alert doesn't say which exchange or symbol it's for.</p>
+
+        <button type="submit" class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold transition">Save settings</button>
+    </form>
+
+    <div class="md:col-span-2 space-y-6">
+        <div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
+            <h2 class="text-lg font-bold mb-2">Webhook URL</h2>
+            <p class="text-xs text-gray-400 mb-3">If your URL leaks, make a new one. Every TradingView alert then needs the new URL.</p>
+            <form method="POST" action="/dashboard/rotate-token">
+                <button type="submit" class="px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-orange-500/50 rounded-lg text-xs font-semibold transition"
+                    onclick="return confirm('This will invalidate your current webhook URL. You will need to update it in every TradingView alert. Continue?')">
+                    Generate a new URL
+                </button>
+            </form>
+            <p class="text-[11px] text-gray-600 mt-2">Current URL created {{ user.webhook_token_created_at.strftime('%Y-%m-%d') if user.webhook_token_created_at else 'N/A' }}.</p>
+        </div>
+
+        <div class="bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
+            <h2 class="text-lg font-bold mb-3">Setup guide</h2>
+            <ol class="space-y-2 text-sm text-gray-300 list-decimal pl-5">
+                <li><strong>Discord:</strong> Channel settings → Integrations → Webhooks → New Webhook → Copy Webhook URL. Add it under Channels.</li>
+                <li><strong>TradingView:</strong> create an alert (Alt + A). In Notifications, tick Webhook URL and paste your URL. Paste the message into the Message box. Click Create.</li>
+                <li><strong>Optional (Pro):</strong> paste a shared chart layout link above so screenshots show your indicators.</li>
+            </ol>
+        </div>
+    </div>
+</div>
+</section>
 
 <script>
     function copyText(id, btn) {
@@ -446,10 +403,27 @@
         btn.textContent = 'Copied!';
         setTimeout(() => btn.textContent = old, 2000);
     }
+
+    const TABS = ['overview', 'channels', 'settings'];
+    function showTab(name) {
+        if (!TABS.includes(name)) name = 'overview';
+        TABS.forEach(t => {
+            document.getElementById('panel-' + t).classList.toggle('hidden', t !== name);
+            const link = document.querySelector('.tab-link[data-tab="' + t + '"]');
+            link.classList.toggle('border-blue-500', t === name);
+            link.classList.toggle('text-white', t === name);
+            link.classList.toggle('border-transparent', t !== name);
+            link.classList.toggle('text-gray-400', t !== name);
+            link.setAttribute('aria-selected', t === name);
+        });
+    }
+    window.addEventListener('hashchange', () => showTab(location.hash.slice(1)));
+    document.querySelectorAll('[data-tab-link]').forEach(a => a.addEventListener('click', () => showTab(a.dataset.tabLink)));
+    showTab(location.hash.slice(1));
+
     {% if test_sent %}
     setTimeout(() => window.location.replace('/dashboard'), 20000);
     {% endif %}
 </script>
-
 
 {% endblock %}
