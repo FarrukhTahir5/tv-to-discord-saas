@@ -4,6 +4,11 @@ from app.config import settings
 
 templates = Jinja2Templates(directory="app/templates")
 
+templates.env.globals["umami"] = {
+    "website_id": settings.umami_website_id,
+    "host": settings.umami_host.rstrip("/"),
+}
+
 # Plan numbers for every page, so prices and limits are only defined in config
 templates.env.globals["plans"] = {
     "free_alerts": settings.free_alerts_per_day,

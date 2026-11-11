@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     outreach_followup_days: int = 5
     outreach_api_token: str = ""        # lets the daily research agent add leads
 
+    # Umami analytics (self-hosted, shared with Invoxa). Empty ID = no tracking.
+    umami_website_id: str = ""
+    umami_host: str = "https://invoices.chartalert.online/stats"
+
     # Redis (optional)
     redis_url: Optional[str] = None
 

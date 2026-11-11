@@ -7,6 +7,9 @@
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
   <title>{% block title %}{{ title | default('') }}{% endblock %} | {{ app_name | default('ChartAlert') }}</title>
   {% block head %}{% endblock %}
+  {% if umami.website_id and not (user and user.is_admin) %}
+  <script defer src="{{ umami.host }}/script.js" data-website-id="{{ umami.website_id }}" data-host-url="{{ umami.host }}"></script>
+  {% endif %}
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link
