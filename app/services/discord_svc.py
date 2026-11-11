@@ -27,13 +27,14 @@ async def post_to_discord(
     screenshot_bytes: bytes | None,
     app_name: str = "ChartAlert",
     branded: bool = True,
+    note: str | None = None,
 ) -> DiscordResult:
     async with _discord_semaphore:
         async with aiohttp.ClientSession() as session:
             try:
                 return await _do_post(
                     session, webhook_url, symbol, message,
-                    screenshot_bytes, app_name, branded,
+                    screenshot_bytes, app_name, branded, note,
                 )
             except Exception as e:
                 logger.error("Discord post exception: %s", e)
@@ -48,10 +49,13 @@ async def _do_post(
     screenshot_bytes: bytes | None,
     app_name: str,
     branded: bool = True,
+    note: str | None = None,
 ) -> DiscordResult:
     # Message text appears ABOVE the embed as regular content
     content = message.strip()
-    if not screenshot_bytes:
+    if note:
+        content += f"\n-# {note}"
+    elif not screenshot_bytes:
         content += "\n⚠️ *(Chart preview unavailable)*"
 
     # Embed is the chart image. Free plan posts carry a clickable credit;

@@ -240,7 +240,9 @@
                     <td class="py-2.5 px-3 font-mono text-blue-400 text-xs">{{ alert.parsed_symbol or '—' }}</td>
                     <td class="py-2.5 px-3 text-gray-300 max-w-[220px] truncate" title="{{ alert.raw_text }}">{{ alert.parsed_message or alert.raw_text }}</td>
                     <td class="py-2.5 px-3 whitespace-nowrap">
-                        {% if alert.status == 'discord_ok' and alert.error_stage == 'screenshot' %}
+                        {% if alert.status == 'discord_ok' and alert.error_stage == 'limit' %}
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30" title="Over your daily limit, so it was posted without a chart. Pro includes {{ plans.pro_alerts }} charts a day.">Sent, limit reached</span>
+                        {% elif alert.status == 'discord_ok' and alert.error_stage == 'screenshot' %}
                         <span class="text-xs px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30" title="Posted, but the chart couldn't be captured in time">Sent, no chart</span>
                         {% elif alert.status == 'discord_ok' %}
                         <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">Sent</span>

@@ -169,7 +169,10 @@ def _check_inbox_blocking(leads: list[tuple[str, datetime.datetime]]) -> dict[st
         imap.select("INBOX", readonly=True)
         for addr, since in leads:
             since_str = since.strftime("%d-%b-%Y")
-            status, data = imap.search(None, "FROM", f'"{addr}"', "SINCE", since_str)
+            # A reply from anyone at the same company counts (tom@ answering an email sent to hello@)
+            domain = lead_domain(addr)
+            sender = addr if domain in FREE_MAIL_DOMAINS else f"@{domain}"
+            status, data = imap.search(None, "FROM", f'"{sender}"', "SINCE", since_str)
             if status == "OK" and data and data[0].split():
                 found[addr] = "replied"
                 continue

@@ -232,13 +232,9 @@ async def _process_alert(alert: AlertLog):
             return
 
     # --- Check usage limit ---
-    allowed = await check_and_increment_usage(user.id)
-    if not allowed:
-        await _update_alert(
-            alert.id, status="failed",
-            error_stage="billing", error_message="Daily limit reached",
-        )
-        return
+    # Over the limit, the alert is still posted, as text without a chart,
+    # so the user never silently misses an alert.
+    over_limit = not await check_and_increment_usage(user.id)
 
     # --- Parse ticker ---
     parsed = parse_alert(
@@ -257,7 +253,7 @@ async def _process_alert(alert: AlertLog):
 
     # --- Screenshot ---
     screenshot = None
-    if parsed.symbol:
+    if parsed.symbol and not over_limit:
         try:
             screenshot = await asyncio.wait_for(
                 take_screenshot(
@@ -303,6 +299,10 @@ async def _process_alert(alert: AlertLog):
             screenshot_bytes=screenshot,
             app_name=settings.app_name,
             branded=not is_pro,
+            note=(
+                f"Daily chart limit reached ({user.effective_daily_limit} a day on your plan). "
+                f"[Upgrade for charts on every alert](<{settings.app_url}/pricing>)"
+            ) if over_limit else None,
         )
         results.append(res)
 
@@ -312,7 +312,9 @@ async def _process_alert(alert: AlertLog):
 
     elapsed_ms = int((time.monotonic() - start_time) * 1000)
 
-    if success and not screenshot:
+    if success and over_limit:
+        error_stage, error_msg = "limit", "Over daily limit: posted without chart"
+    elif success and not screenshot:
         # Delivered, but as text only — tracked so the admin panel can show it
         error_stage, error_msg = "screenshot", "Delivered without chart"
     else:
